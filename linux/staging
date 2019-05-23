@@ -1,0 +1,10 @@
+[dbservers]
+
+[webservers]
+
+[etcservers]
+localhost
+[staging:children]
+webservers
+dbservers
+etcservers

@@ -1,0 +1,15 @@
+# Target Section.
+- hosts: all
+  become: yes
+  become_method: su
+# tasks Section.
+  tasks:
+      - name: Extract filesystems.
+        shell: df -h | sed -n '2,$p' | awk '{print $1}'
+        register: filesystems
+        
+      - name: change FSCK settings.
+        shell: /sbin/tune2fs -c -1 {{ item }} ; /sbin/tune2fs -i 0 {{ item }}
+        with_items: "{{ filesystems.stdout_lines }}"
+        changed_when: False
+        ignore_errors: yes

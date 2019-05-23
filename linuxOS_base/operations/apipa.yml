@@ -1,0 +1,17 @@
+# target Section.
+- hosts: all
+  become: yes
+  become_method: su
+# variable Section.
+# tasks Section.
+  tasks:
+      - name: disable APIPA
+        lineinfile:
+            path: /etc/sysconfig/network
+            line: 'NOZEROCONF=yes'
+            
+      - name: restart network
+        service:
+            name: network
+            state: restarted
+

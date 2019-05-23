@@ -1,0 +1,82 @@
+---
+- block:
+  - block:
+    - name: set hostname
+      hostname:
+        name: {{ inventory_hostname }}
+      
+    - name: deploy hosts file
+      template:
+        src: hosts.j2
+        dest: /etc/hosts
+        owner: root
+        group: root
+        mode: 0644
+        backup: yes
+    tags: set_hostname
+    
+  - block:
+    - name: get device filenames
+      shell: "cat /proc/partitions | tail -n +3 | awk '{print $4}'"
+        args:
+          executable: /bin/bash
+      register: result
+      
+    - name: disable running fsck on scheduled
+      shell: "tune2fs -c -1 /dev/{{ item }};tune2fs -i 0 /dev/{{ item }}"
+        args:
+          executable: /bin/bash
+      loop: "{{ result.stdout_lines }}"
+    tags: disable_fsck
+    
+  - name: set timezone
+    block:
+    - name: change timezone
+      file:
+        src: {{ timezone.jstpath }}
+        dest: /etc/localtime
+        owner: root
+        group: root
+        state: link
+        
+    - name: change timezone settings
+      replace:
+        path: /etc/sysconfig/clock
+        regexp: '^ZONE='
+        replace: 'ZONE="Asia/Tokyo"'
+        
+    - name: change timezone settings
+      replace:
+        path: /etc/sysconfig/clock
+        regexp: '^UTC='
+        replace: 'UTC=false'
+    tags: set_timezone
+    
+  - name: ntpd settings for CentOS
+    block:
+      - name: install ntpd
+        yum:
+          name: ntp
+          state: latest
+          
+      - name: disable synchronizing server unused
+        replace:
+          path: /etc/ntp.conf
+          regexp: '^(server.+)$'
+          replace: '#\1'
+          
+      - name: add time to synchronized server
+        blockinfile:
+          dest: /etc/ntp.conf
+          insertafter: '^#server.+'
+          block: |
+            server {{ item }} prefer iburst
+          backup: yes
+        loop: "{{ timesync.servers }}"
+        notify: restart_ntpd
+          
+    tags: time_settings_CentOS
+    when: ansible_distribution == "CentOS"
+  tags: general_setting
+    
+    

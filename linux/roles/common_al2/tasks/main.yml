@@ -1,0 +1,339 @@
+---
+
+- block:
+  - name: updates all installed packages
+    block:
+      - name: yum update
+        yum:
+          name: '*'
+          state: latest
+          update_only: yes
+    tags: yum_update
+    
+  - block:
+    - name: set hostname
+      hostname:
+        name: "{{ inventory_hostname }}"
+      
+    - name: deploy hosts file
+      template:
+        src: hosts/hosts.j2
+        dest: /etc/hosts
+        owner: root
+        group: root
+        mode: 0644
+        backup: yes
+    tags: hostname
+    
+  - block:
+    - name: get device filenames
+      shell: "cat /proc/partitions | tail -n +3 | awk '{print $4}'"
+      args:
+        executable: /bin/bash
+      check_mode: no
+      failed_when: no
+      changed_when: no
+      register: result
+      
+    - name: disable running fsck on scheduled
+      shell: "tune2fs -c -1 /dev/{{ item }};tune2fs -i 0 /dev/{{ item }}"
+      args:
+        executable: /bin/bash
+      register: result_t2fs
+      check_mode: no
+      failed_when: result_t2fs.rc > 0
+      changed_when: result_t2fs.rc == 0
+      loop: "{{ result.stdout_lines }}"
+      when: result.rc == 0
+      ignore_errors: true
+    always:
+      - name: show error message when running tune2fs cmd
+        debug:
+          msg: "ErrorMsg: {{ ' '.join(item.stderr_lines) }}, RC: {{ item.rc }} COMMAND: {{ item.cmd }}"
+        ignore_errors: true
+        loop: "{{ result_t2fs.results }}"
+      
+    tags: disable_fsck
+    
+  - name: set timezone
+    block:
+      - name: remove file /etc/localtime
+        file:
+          path: /etc/localtime
+          state: absent
+          
+      - name: change timezone
+        file:
+          src: "{{ timezone.jstpath }}"
+          dest: /etc/localtime
+          owner: root
+          group: root
+          state: link
+        
+      - name: change timezone settings
+        replace:
+          path: /etc/sysconfig/clock
+          regexp: '^(ZONE)=\S+'
+          replace: '\1="Asia/Tokyo"'
+        
+      - name: change timezone settings
+        replace:
+          path: /etc/sysconfig/clock
+          regexp: '^(UTC)=\S+'
+          replace: '\1=false'
+    tags: timezone
+    
+  - name: settings postfix
+    block:
+      - name: postfix inet_protocols
+        lineinfile:
+          dest: "{{ postfix.mainconf }}"
+          backup: yes
+          state: present
+          regexp: '^inet_protocols\s*=\s*\w+'
+          line: "inet_protocols={{ postfix.inet_protocols }}"
+          
+      - name: "postfix: sets relayhost"
+        lineinfile:
+          dest: "{{ postfix.mainconf}}"
+          backup: yes
+          state: present
+          regexp: '^relayhost\s*=\s*\S+'
+          insertafter: '^#relayhost\s*=\s*\S+'
+          line: "relayhost = [{{ postfix.relayhost }}]:587"
+          
+      - name: "postfix: disable smtpd"
+        lineinfile:
+          dest: "{{ postfix.masterconf }}"
+          backrefs: yes
+          backup: yes
+          state: present
+          regexp: '^(smtp\s+inet.+smtpd)$'
+          line: '#\1'
+
+      - name: "postfix ses settings"
+        block:
+          - name: "postfix: add ses settings"
+            lineinfile:
+              dest: "{{ postfix.mainconf }}"
+              state: present
+              line: "{{ item.key }} = {{ item.value }}"
+            loop: "{{ postfix.ses_settings|dict2items }}"
+          
+          - name: "postfix: distributes the file for smtp authentication"
+            template:
+              src: postfix/sasl_passwd.j2
+              dest: "{{ postfix.sasl_passwd }}"
+              owner: root
+              group: root
+              mode: 0600
+            
+          - name: "postfix: creates db file"
+            shell: "/usr/sbin/postmap hash:{{ postfix.sasl_passwd }}"
+            args:
+              executable: /bin/bash
+            check_mode: no
+            register: result_postmap
+            failed_when: no
+            changed_when: result_postmap.rc == 0
+            notify: restart_postfix
+              
+          - name: "postfix: changes permission and owner"
+            file:
+              dest: "{{ item }}"
+              owner: root
+              group: root
+              mode: 0600
+            ignore_errors: true
+            loop:
+              - "{{ postfix.sasl_passwd }}"
+              - "{{ postfix.sasl_passwd }}.db"
+            notify: restart_postfix
+        when: is_ses_settings == true
+    tags: postfix
+    
+  - name: settings zabbix_agent
+    block:
+      - name: install zabbix repository
+        yum:
+          name: "{{ zabbix.repository }}"
+          state: latest
+          
+      - name: install zabbix_agent
+        yum:
+          name: zabbix-agent
+          state: latest
+          
+      - name: edit config zabbix_agent
+        block:
+        
+          - name: changes source server to zabbix_agentd.conf
+            lineinfile:
+              dest: "{{ zabbix.conf }}"
+              backup: yes
+              state: present
+              regexp: '^Server\s*=\s*\S+'
+              line: "Server={{ zabbix.server }}"
+            notify: restart_zabbix_agent
+
+          - name: changes active source server to zabbix_agentd.conf
+            lineinfile:
+              dest: "{{ zabbix.conf }}"
+              backup: yes
+              state: present
+              regexp: '^ServerActive\s*=\s*\S+'
+              insertafter: '#\s*ServerActive=.*'
+              line: "ServerActive={{ zabbix.server }}"
+            notify: restart_zabbix_agent
+              
+          - name: add HostnameItem to zabbix_agentd.conf
+            lineinfile:
+              dest: "{{ zabbix.conf }}"
+              state: present
+              regexp: '^HostnameItem\s*=\s*\S+'
+              insertafter: '^#\s*HostnameItem\s*=\s*\S+'
+              line: "HostnameItem=system.hostname"
+            notify: restart_zabbix_agent
+            
+          - name: add new items written in vars to zabbix_agentd.conf
+            lineinfile:
+              dest: "{{ zabbix.conf }}"
+              state: present
+              line: "{{ item.name }}={{ item.value }}"
+            loop: "{{ zabbix.conf_items }}"
+            notify: restart_zabbix_agent
+    tags: zabbix_agent
+    
+  - name: sudo settings
+    block:
+      - name: add users can sudo
+        lineinfile:
+          dest: "{{ sudo.conf }}"
+          backup: yes
+          state: present
+          line: "{{ item }} ALL=(ALL) ALL"
+          validate: /usr/sbin/visudo -cf %s
+        loop: "{{ sudo.sudo_users }}"
+        
+      - name: "mail settings when running sudo command"
+        blockinfile:
+          dest: "{{ sudo.conf }}"
+          state: present
+          marker: "# {mark} SUDO MAIL SETTINGS"
+          block: |
+            Defaults mail_always,\
+                     mailto={{ sudo.sudo_mailto }},\
+                     mailsub="[sudo] detected sudo %u (%h)"
+          validate: /usr/sbin/visudo -cf %s
+    tags: sudo
+    
+  - name: ssh settings
+    block:
+      - name: sshd AddressFamily
+        lineinfile:
+          dest: "{{ ssh.conf }}"
+          backup: yes
+          state: present
+          regexp: '^AddressFamily\s*'
+          insertafter: '^#\s*AddressFamily\s*'
+          line: "AddressFamily {{ ssh.conf_items.AddressFamily }}"
+        notify: restart_sshd
+          
+      - name: sshd ListenAddress
+        lineinfile:
+          dest: "{{ ssh.conf }}"
+          state: present
+          regexp: '^ListenAddress\s*'
+          insertafter: '^#\s*ListenAddress\s*'
+          line: "ListenAddress {{ ssh.conf_items.ListenAddress }}"
+        notify: restart_sshd
+
+      - name: sshd PasswordAuthentication
+        lineinfile:
+          dest: "{{ ssh.conf }}"
+          state: present
+          regexp: '^PasswordAuthentication\s*'
+          insertafter: '^#\s*PasswordAuthentication\s*'
+          line: "PasswordAuthentication {{ ssh.conf_items.PasswordAuthentication }}"
+        notify: restart_sshd
+          
+      - name: sshd Subsystem
+        lineinfile:
+          dest: "{{ ssh.conf }}"
+          state: present
+          regexp: '^Subsystem\s*'
+          insertafter: '^#\s*Subsystem\s*'
+          line: "Subsystem {{ ssh.conf_items.Subsystem }}"
+        notify: restart_sshd
+          
+      - name: sshd PermitRootLogin
+        lineinfile:
+          dest: "{{ ssh.conf }}"
+          state: present
+          regexp: '^PermitRootLogin\s*'
+          insertafter: '^#\s*PermitRootLogin\s*'
+          line: "PermitRootLogin {{ ssh.conf_items.PermitRootLogin }}"
+        notify: restart_sshd
+    tags: ssh
+    
+  - name: cloud-init settings
+    block:
+      - name: cloud-init ssh_pwauth
+        lineinfile:
+          dest: "{{ cloud.conf }}"
+          backup: yes
+          state: present
+          regexp: 'ssh_pwauth:.*'
+          line: "ssh_pwauth: {{ cloud.conf_items.ssh_pwauth }}"
+    tags: cloud-init
+    
+  - name: syslog settings
+    block:
+      - name: add item transfer syslog to the other servers
+        lineinfile:
+          dest: "{{ syslog.conf }}"
+          backup: yes
+          state: present
+          line: "*.* @{{ item.ip }}:{{ item.port }}"
+        loop: "{{ syslog.servers }}"
+        notify: restart_syslog
+    tags: syslog
+    
+  - name: kernel settings
+    block:
+      - name: disable ipv6 settings
+        lineinfile:
+          dest: "{{ kernel.sysctl_conf }}"
+          backup: yes
+          state: present
+          line: "{{ item.key }} = {{ item.value }}"
+        with_dict: "{{ kernel.params.disable_ipv6 }}"
+        tags: disable_ipv6
+    tags: kernel
+    
+  - name: loginchk
+    block:
+      - name: distribute a loginchk script
+        template:
+          src: loginchk/loginchk_ses.py.j2
+          dest: /etc/profile.d/loginchk_ses.py
+          owner: root
+          group: root
+          mode: 0644
+          
+      - name: enable loginchk
+        lineinfile:
+          dest: "/etc/profile"
+          backup: yes
+          state: present
+          line: "/usr/bin/python /etc/profile.d/loginchk_ses.py"
+    tags: loginchk
+    
+  - name: service settings
+    block:
+      - name: disable services
+        systemd:
+          name: "{{ item }}"
+          enabled: no
+        loop: "{{ service.disable }}"
+    tags: service

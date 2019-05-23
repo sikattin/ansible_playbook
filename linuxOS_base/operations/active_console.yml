@@ -1,0 +1,15 @@
+### change ACTIVE_CONSOLES
+# target Section.
+- hosts: all
+  become: yes
+  become_method: su
+# variable Section.
+# tasks Section.
+  tasks:
+      - name: edit /etc/sysconfig/init
+        lineinfile:
+            path: /etc/sysconfig/init
+            state: present
+            backrefs: yes
+            regexp: '^ACTIVE_CONSOLES'
+            line: 'ACTIVE_CONSOLES=/dev/tty[1-3]'

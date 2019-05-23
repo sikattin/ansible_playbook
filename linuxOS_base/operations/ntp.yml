@@ -1,0 +1,25 @@
+### ntp configuration.
+# target Section.
+- hosts: all
+  become: yes
+  become_method: su
+# variable Section.
+  vars_files:
+      - ../vars/arad_address.yml
+# tasks Section.
+  tasks:
+      - name: uncomment existed.
+        lineinfile:
+            path: /etc/ntp.conf
+            state: present
+            backrefs: yes
+            regexp: '^server +{{ gateway }}'
+            line: '#server {{ gateway }}'
+            
+      - name: insert local IP configuration.
+        lineinfile:
+            path: /etc/ntp.conf
+            line: "{{ item }}"
+        with_items:
+            - server {{ gateway }}
+            - restrict {{ gateway }} mask 255.255.255.255 nomodify notrap noquery

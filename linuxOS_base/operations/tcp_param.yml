@@ -1,0 +1,33 @@
+### check TCP params.
+# target Section.
+- hosts: all
+  become: yes
+  become_method: su
+# variable Section.
+# tasks Section.
+  tasks:
+      - name: check tcp_syncookies
+        shell: cat /proc/sys/net/ipv4/tcp_syncookies
+        register: tcp_syncookies
+        
+      - name: change param of tcp_syncookies
+        lineinfile:
+            path: /proc/sys/net/ipv4/tcp_syncookies
+            state: present
+            backrefs: yes
+            regexp: '0'
+            line: '1'
+        when: tcp_syncookies.stdout == '0'
+        
+      - name: check icmp_echo_ignore_broadcasts
+        shell: cat /proc/sys/net/ipv4/icmp_echo_ignore_broadcasts
+        register: icmp
+        
+      - name: change param of tcp_syncookies
+        lineinfile:
+            path: /proc/sys/net/ipv4/icmp_echo_ignore_broadcasts
+            state: present
+            backrefs: yes
+            regexp: '0'
+            line: '1'
+        when: icmp.stdout == '0'

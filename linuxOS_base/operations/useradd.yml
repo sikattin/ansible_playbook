@@ -1,0 +1,15 @@
+# Target Section.
+- hosts: all
+  become: yes
+  become_method: su
+# variable section.
+  vars_files:
+      - ../vars/usergroup.yml
+# Tasks Section.
+  tasks:
+      - name: useradd
+        user:
+            name: "{{ usergroup.for_work.user }}"
+            shell: "{{ usergroup.for_work.shell }}"
+            home: "{{ usergroup.for_work.home }}"
+            password: "{{ usergroup.for_work.password|password_hash('sha512') }}"

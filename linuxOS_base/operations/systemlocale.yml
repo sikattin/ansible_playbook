@@ -1,0 +1,23 @@
+# Target Section.
+- hosts: all
+  become: yes
+  become_method: su
+# tasks Section.
+  tasks:
+
+      - name: set timezone to Asia/Tokyo
+        timezone:
+            name: Asia/Tokyo
+            
+#    - name: confirm Timezone.
+#      shell: date
+#      register: date_info
+#      
+#    - name: change Timezone.
+#    - copy:
+#        remote_src: yes
+#        src: /usr/share/zoneinfo/Japan
+#        dest: /etc/localtime
+#        owner: root
+#        group: root
+#        when: "'JST' in date_info.stdout"

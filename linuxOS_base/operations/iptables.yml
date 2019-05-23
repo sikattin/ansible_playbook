@@ -1,0 +1,51 @@
+### for all
+- hosts: all
+  become: yes
+  become_method: su
+# variable Section.
+# tasks Section
+  tasks:
+      - name: Flushes the specified table and chain of all rules.
+        iptables:
+            flush: true
+            
+      - name: restart iptables service.
+        service:
+            name: iptables
+            state: restarted
+          
+### for having local and global nic hosts.
+# target Section.
+- hosts: global
+  become: yes
+  become_method: su
+# variable Section.
+  vars_files:
+      - ../vars/globalgrp_nic.yml
+# tasks Section
+  tasks:
+      - name: Copy a new iptables file to remote host.
+        template:
+            src: ../sendfiles/iptables.j2
+            dest: /etc/sysconfig/iptables
+            owner: root
+            group: root
+            mode: 0600
+          
+### for only local nic host.
+# target Section.
+- hosts: local
+  become: yes
+  become_method: su
+# variable Section.
+  vars_files:
+      - ../vars/localgrp_nic.yml
+# tasks Section
+  tasks:
+      - name: Copy a new iptables file to remote host.
+        template:
+            src: ../sendfiles/iptables.j2
+            dest: /etc/sysconfig/iptables
+            owner: root
+            group: root
+            mode: 0600

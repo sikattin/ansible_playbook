@@ -1,0 +1,64 @@
+---
+timezone:
+  jstpath: "/usr/share/zoneinfo/Asia/Tokyo"
+timesync:
+  servers:
+    - 169.254.169.123
+postfix:
+  mainconf: "/etc/postfix/main.cf"
+  masterconf: "/etc/postfix/master.cf"
+  inet_protocols: "ipv4"
+  relayhost: "email-smtp.us-east-1.amazonaws.com"
+  sasl_passwd: "/etc/postfix/sasl_passwd"
+  ses_settings:
+    smtp_sasl_auth_enable: "yes"
+    smtp_sasl_security_options: "noanonymous"
+    smtp_sasl_password_maps: "hash:/etc/postfix/sasl_passwd"
+    smtp_use_tls: "yes"
+    smtp_tls_security_level: "encrypt"
+    smtp_tls_note_starttls_offer: "yes"
+    smtp_tls_CAfile: "/etc/ssl/certs/ca-bundle.crt"
+zabbix:
+  repository: "https://repo.zabbix.com/zabbix/4.0/rhel/7/x86_64/zabbix-release-4.0-1.el7.noarch.rpm"
+  server: "10.100.0.233"
+  conf: "/etc/zabbix/zabbix_agentd.conf"
+  conf_items:
+    - name: "HostMetadata"
+      value: "Linux"
+sudo:
+  conf: "/etc/sudoers"
+  sudo_users:
+    - araduser01
+  sudo_mailto: "notifi.tech.arad@nexon.co.jp"
+ssh:
+  conf: "/etc/ssh/sshd_config"
+  conf_items:
+    AddressFamily: "inet"
+    ListenAddress: "0.0.0.0"
+    PasswordAuthentication: "yes"
+    Subsystem: "sftp /usr/libexec/openssh/sftp-server -l VERBOSE"
+    PermitRootLogin: "no"
+cloud:
+  conf: "/etc/cloud/cloud.cfg"
+  conf_items:
+    ssh_pwauth: "true"
+syslog:
+  conf: "/etc/rsyslog.conf"
+  servers:
+    - ip: "172.16.43.241"
+      port: "10530"
+kernel:
+  sysctl_conf: "/etc/sysctl.conf"
+  params:
+    disable_ipv6:
+      net.ipv6.conf.all.disable_ipv6: "1"
+      net.ipv6.conf.default.disable_ipv6: "1"
+service:
+  disable:
+    - atd
+    - auditd
+    - dbus
+    - rpcbind
+    - rngd
+      
+    

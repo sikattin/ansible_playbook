@@ -1,0 +1,11 @@
+---
+- name: Include AL2 play
+  import_playbook: al2.yml
+  when: ansible_distribution == "Amazon"
+  
+- name: Include centos7 play
+  import_playbook: centos7.yml
+  when:
+    - ansible_distribution == "CentOS"
+    - ansible_distribution_major_version == "7"
+  

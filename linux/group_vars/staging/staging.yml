@@ -1,0 +1,10 @@
+users:
+  - name: hoge
+    shell: /bin/bash
+  - name: mike
+    shell: /bin/bash
+mail:
+  to_address: "notifi.tech.arad@nexon.co.jp"
+  cc_address: "notifi.tech.arad@nexon.co.jp"
+  from_address: "notifi.tech.arad@nexon.co.jp"
+  smtp_endpoint: "email-smtp.us-west-2.amazonaws.com"

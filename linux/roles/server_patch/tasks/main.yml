@@ -1,0 +1,24 @@
+---
+- block:
+  - name: Get the lists of add/modified files
+    block:
+      - shell: "svn log -v -r {{ svn.revision }} | awk '/ (A|M) (.+)$/{print $2}'"
+          args:
+            chdir: "{{ svn.working_dir }}"
+            executable: /bin/bash
+        register: result
+    when: svn.revision is defined
+  
+    
+  - name: Copy add/modified files to remote if the destination path actually exists
+    block:
+      - stat: 
+          path: "{{ patch.rootdir }}{{ item }}"
+        register: is_exists
+        
+      - copy:
+          src: "{{ svn.working_dir }}{{ item }}"
+          dest: "{{ patch.rootdir }}{{ item}}"
+        when: is_exists.stat.exists
+    loop: "{{ result.stdout_lines }}"
+    

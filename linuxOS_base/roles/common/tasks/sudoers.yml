@@ -1,0 +1,15 @@
+---
+
+- name: specify privileges to sudoers
+  lineinfile:
+      path: /etc/sudoers
+      state: present
+      backup: yes
+      line: '{{ item.user_name }} ALL=(ALL) ALL'
+  loop:
+    "{{ user }}"
+
+- name: Validate sudoers
+  shell: /usr/sbin/visudo --check
+  register: result
+  failed_when: result.rc != 0

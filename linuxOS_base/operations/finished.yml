@@ -1,0 +1,16 @@
+# target Section.
+- hosts: all
+  become: yes
+  become_method: su
+# variable Section.
+# target Section.
+  tasks:
+      - name: reboot
+        shell: sleep 2 && shutdown -r now
+        async: 1
+        poll: 0
+        ignore_errors: true
+        
+      - name: wait for server to up
+        local_action: wait_for host={{ server1 }} state=started delay=10 timeout=300
+        

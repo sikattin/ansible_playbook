@@ -1,0 +1,5 @@
+---
+- hosts: stage3-gameservers:stage3-appservers
+  remote_user: "{{ remote_user }}"
+  roles:
+    - server_patch

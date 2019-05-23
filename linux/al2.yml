@@ -1,0 +1,7 @@
+---
+- hosts: staging
+  become: true
+  become_user: root
+  roles:
+    - common_al2
+  

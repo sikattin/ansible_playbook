@@ -1,0 +1,26 @@
+- name: Deny root login.
+  lineinfile:
+    path: /etc/ssh/sshd_config
+    state: present
+    backrefs: yes
+    regexp: '^PermitRootLogin'
+    line: 'PermitRootLogin no'
+    handler: restart sshd
+
+- name: enable PasswordAuthentication
+  lineinfile:
+    path: /etc/ssh/sshd_config
+    state: present
+    backrefs: yes
+    regexp: '^PasswordAuthentication'
+    line: 'PasswordAuthentication yes'
+    handler: restart sshd
+
+- name: Allow to listen foreign address
+  lineinfile:
+    path: /etc/ssh/sshd_config
+    state: present
+    backrefs: yes
+    regexp: '#*ListenAddress.+'
+    line: 'ListenAddress 0.0.0.0'
+    handler: restart sshd

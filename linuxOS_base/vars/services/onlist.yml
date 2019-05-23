@@ -1,0 +1,5 @@
+onlist:
+    - ntpd
+    - postfix
+    - iptables 
+#['ntpd', 'postfix', 'iptables']

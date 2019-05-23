@@ -1,0 +1,28 @@
+*filter
+:INPUT DROP
+:FORWARD DROP
+:OUTPUT DROP
+
+### LoopbackInterface
+-A INPUT -i lo -j ACCEPT
+-A OUTPUT -o lo -j ACCEPT
+
+### ICMP
+-A INPUT -p icmp -j ACCEPT
+-A OUTPUT  -p icmp -j ACCEPT
+
+### NTP
+-A INPUT -p udp -s 111.87.33.254 --sport 123 -i {{ nic_name }} -j ACCEPT
+-A OUTPUT -p udp -d 111.87.33.254 --dport 123 -o {{ nic_name }} -j ACCEPT
+
+### DNS
+-A INPUT -p udp -s 59.128.93.224 --sport 53 -i {{ nic_name }} -j ACCEPT
+-A OUTPUT -p udp -d 59.128.93.224 --dport 53 -o {{ nic_name }} -j ACCEPT
+
+### SSH
+## for TecSup2Team SSL-VPN
+-A INPUT -p tcp -s 172.16.123.96/28 -i {{ nic_name }} --dport 22 -j ACCEPT
+-A OUTPUT -p tcp -d 172.16.123.96/28 -o {{ nic_name }} --sport 22 -j ACCEPT
+
+
+COMMIT

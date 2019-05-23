@@ -1,0 +1,4 @@
+---
+patch:
+  rootdir: /home/arad/stage1
+  syncscript_dir: /home/arad/stage1/syncscripttool
