@@ -1,0 +1,100 @@
+---
+
+- name: "Install and setting apache web server"
+  block:
+    - name: "Setup build environment using yum"
+      block:
+        - name: "Install C, C++ compiler"
+          yum:
+            name: "{{ item }}"
+            state: latest
+          loop:
+            - "gcc"
+            - "gcc-c++"
+      when: ansible_distribution != "Ubuntu" or ansible_distribution != "Debian"
+      tags: setup_buildenv
+  
+    - name: "Setup build environment using apt"
+      block:
+        - name: "Install C, C++ compiler"
+          apt:
+            name: "{{ item }}"
+            state: latest
+          loop:
+            - "gcc"
+            - "gcc-c++"
+      when: ansible_distribution == "Ubuntu" or ansible_distribution == "Debian"
+      
+    - name: "Install apr"
+      block:
+        - name: "download apr source"
+          get_url:
+            url: "http://archive.apache.org/dist/apr/apr-{{ apr.version }}.tar.gz"
+            dest: "/usr/local/src/apr-{{ apr.version }}.tar.gz"
+            checksum: "sha256:http://archive.apache.org/dist/apr/apr-{{ apr.version }}.tar.gz"
+            force: yes
+            
+        - name: "clean up the build directory"
+          file:
+            path: /usr/local/src/bld
+            state: absent
+            
+        - name: "create the build directory"
+          file:
+            path: /usr/local/src/bld
+            state: directory
+            
+        - name: "unarchive source archive"
+          unarchive:
+            src: "/usr/local/src/apr-{{ apr.version }}.tar.gz"
+            dest: /usr/local/src/bld
+            remote_src: yes
+            
+        - name: "configure apr"
+          shell: >
+            ./configure
+            --disable-option-checking
+            --enable-so
+            --enable-module=so
+            --enable-module=rewrite
+            --cache-file=/dev/null
+          args:
+            chdir: "/usr/local/src/bld/apr-{{ apr.version }}"
+          check_mode: no
+            
+        - name: make
+          make:
+            chdir: "/usr/local/src/bld/apr-{{ apr.version }}"
+            
+        - name: make install
+          make:
+            chdir: "/usr/local/src/bld/apr-{{ apr.version }}"
+            target: install
+          
+        - name: add ld library path
+          shell: "echo /usr/local/apr/lib > {{ apr.ldconf }}; ldconfig"
+          args:
+            executable: /bin/bash
+            creates: "{{ apr.ldconf }}"
+      tags: apr
+      
+    - name: "Install apr-util"
+      block:
+        - name: download apr-util source
+          get_url:
+            url: "http://archive.apache.org/dist/apr/apr-util-{{ apr-util.version }}.tar.gz"
+            dest: "/usr/local/src/apr-util-{{ apr-util.version }}.tar.gz"
+            checksum: "sha256:http://archive.apache.org/dist/apr/apr-util-{{ apr-util.version }}.tar.gz"
+            force: yes
+            
+        - name: "clean up the build directory"
+        
+      tags: apr-util
+    - name: "change password for users"
+      user:
+        name: "{{ item.key }}"
+        password: "{{ item.value }}"
+        update_password: always
+      with_dict: "{{ user_passwd }}"
+      when: update_password == true
+  tags: add_user

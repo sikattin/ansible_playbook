@@ -1,6 +1,0 @@
-- hosts: redis-server
-  become: yes
-  become_method: su
-  become_user: root
-  roles:
-    - common

@@ -1,0 +1,55 @@
+#!/usr/bin/python
+# -*- coding:utf-8 -*-
+
+from socket import gethostname
+import subprocess
+import smtplib
+import os
+from email.mime.text import MIMEText
+
+# config
+to_addrs = ['{{ mail.cc_address }}']
+cc_addrs = ['{{ mail.to_address }}']
+from_addr = '{{ mail.from_address }}' # 大文字・小文字注意！
+
+ses_account = '{{ aws.ses.smtp_user }}'
+ses_secret = '{{ aws.ses.smtp_passwd }}'
+smtp_endpoint = '{{ mail.smtp_endpoint }}'
+
+
+def is_root():
+    env = os.environ
+    if env['LOGNAME'] == 'root':
+        return 1
+    return 0
+    
+    
+hostname = gethostname()
+p = subprocess.Popen(
+	"last |grep 'still logged in'", 
+	shell=True, 
+	stdout=subprocess.PIPE, 
+	stderr=subprocess.PIPE
+)
+stdout_data, stderr_data = p.communicate()
+
+if stdout_data != "":
+	body = "Now LoginUsers \n\n" + stdout_data
+	if is_root():
+	    subject = "[sshckr] detected switch to '{0}'({1})".format('root', hostname)
+	else:
+	    subject = "[sshckr] detected SSH Login({0})".format(hostname)
+	mail = MIMEText(body)
+	mail['To'] = ",".join(to_addrs)
+	mail['Cc'] = ",".join(cc_addrs)
+	mail['From'] = from_addr
+	mail['Subject'] = subject
+
+	server = smtplib.SMTP(smtp_endpoint, 587)
+	try:
+		server.starttls()
+		server.ehlo()
+		server.login(ses_account, ses_secret)
+		server.sendmail(from_addr, [to_addrs, cc_addrs], mail.as_string())
+	finally:
+		server.quit()

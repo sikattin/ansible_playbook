@@ -3,5 +3,5 @@ user_passwd:
    mike: "Rewq3456"
 aws:
   ses:
-    smtp_user: "AKIAJP53JAJQAC7OMLDQ"
-    smtp_passwd: "AsfiKa29gZtSerNGMJ28sqm/YaIlXydGEn747cziCAYB"
+    smtp_user: "xxx"
+    smtp_passwd: "xxx"

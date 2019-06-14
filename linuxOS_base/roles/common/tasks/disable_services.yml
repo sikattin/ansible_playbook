@@ -1,8 +1,0 @@
----
-
-- name: Disabled services
-    systemd:
-      name: {{ item.name }}
-      enabled: no
-  with_items:
-    "{{ disable_services }}"

@@ -1,0 +1,30 @@
+- name: restart ntpd
+  systemd:
+    name: ntpd.service
+    state: restarted
+  listen: restart_ntpd
+  
+- name: restart postfix
+  systemd:
+    name: postfix.service
+    state: restarted
+  listen: restart_postfix
+  
+- name: restart zabbix_agent
+  systemd:
+    name: zabbix-agent.service
+    state: restarted
+  listen: restart_zabbix_agent
+  
+- name: restart sshd
+  systemd:
+    name: sshd.service
+    state: restarted
+  listen: restart_sshd
+  
+- name: restart syslog
+  systemd:
+    name: rsyslog.service
+    state: restarted
+  listen: restart_syslog
+    

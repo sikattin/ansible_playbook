@@ -1,0 +1,3 @@
+apr:
+  version: "1.4.8"
+  ldconf: "/etc/ld.so.conf.d/apr.conf"

@@ -4,6 +4,7 @@
 
 [etcservers]
 localhost
+
 [staging:children]
 webservers
 dbservers
