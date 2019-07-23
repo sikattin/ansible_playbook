@@ -1,0 +1,166 @@
+---
+
+- name: "Install and settings php"
+  block:
+    - name: "Setup build environment"
+      block:
+        - name: "Install C, C++ compiler, make"
+          yum:
+            name: "{{ item }}"
+            state: latest
+          loop:
+            - "gcc"
+            - "gcc-c++"
+            - "make"
+            - "autoconf"
+            - "libtool"
+            - "bison"
+            - "zlib"
+            - "libxml2-devel"
+          when: ansible_distribution != "Ubuntu" or ansible_distribution != "Debian"
+  
+        - name: "Install C, C++ compiler, make"
+          apt:
+            name: "{{ item }}"
+            state: latest
+          loop:
+            - "gcc"
+            - "gcc-c++"
+            - "make"
+            - "autoconf"
+            - "libtool"
+            - "bison"
+            - "zlib1g"
+            - "zlib1g-dev"
+            - "libxml2"
+            - "libxml2-dev"
+          when: ansible_distribution == "Ubuntu" or ansible_distribution == "Debian"
+      tags: setup_buildenv
+
+
+    - name: "Install PCRE"
+      block:
+        - name: "Install pcre-devel"
+          yum:
+            name: pcre-devel
+            state: latest
+          when: ansible_distribution != "Ubuntu" or ansible_distribution != "Debian"
+          
+        - name: "Install libpcre-dev"
+          apt:
+            name: libpcre3-dev
+            state: latest
+          when: ansible_distribution == "Ubuntu" or ansible_distribution == "Debian"
+      tags: pcre
+
+
+    - name: Install php
+      block:
+        - name: "download php source of release version"
+          get_url:
+            url: "https://www.php.net/distributions/php-{{ php.version }}.tar.gz"
+            dest: "/usr/local/src/php-{{ php.version }}.tar.gz"
+            
+        - name: "clean up the build directory"
+          file:
+            path: "/usr/local/src/bld/php-{{ php.version }}"
+            state: absent
+            
+        - name: "create the build directory"
+          file:
+            path: /usr/local/src/bld
+            state: directory
+            
+        - name: "unarchive source archive"
+          unarchive:
+            src: "/usr/local/src/php-{{ php.version }}.tar.gz"
+            dest: /usr/local/src/bld
+            remote_src: yes
+            
+        - name: "configure php with apache"
+          shell: |
+            ./configure \
+            --with-apxs2={{ apache.install_path }}/bin/apxs \
+            --enable-sockets \
+            --enable-mbregex \
+            --enable-mbstring \
+            --with-zlib
+          args:
+            chdir: "/usr/local/src/bld/php-{{ php.version }}"
+          check_mode: no
+          when: with_apache is defined and with_apache
+          
+        - name: "configure php"
+          shell: |
+            ./configure \
+            --with-apxs2={{ apache.install_path }}/bin/apxs \
+            --enable-sockets \
+            --enable-mbregex \
+            --enable-mbstring \
+            --with-zlib
+          args:
+            chdir: "/usr/local/src/bld/php-{{ php.version }}"
+          check_mode: no
+          when: with_apache is not defined or not with_apache 
+            
+        - name: make
+          make:
+            chdir: "/usr/local/src/bld/php-{{ php.version }}"
+            
+        - name: make install
+          make:
+            chdir: "/usr/local/src/bld/php-{{ php.version }}"
+            target: install
+            
+        - name: loads installed shared library
+          shell: ./libtool --finish /usr/local/src/bld/php-{{ php.version }}/libs
+          args:
+            chdir: "/usr/local/src/bld/php-{{ php.version }}"
+        
+        - name: get php.ini configuration file path
+          shell: "/usr/local/bin/php -i | grep -E '^Configuration File' | awk -F'=> ' '{print $2}'"
+          register: result
+          check_mode: no
+          ignore_errors: True
+          
+        - name: copy php.ini to the default configuration file path
+          copy:
+            src: "/usr/local/src/bld/php-{{ php.version }}/php.ini-development"
+            dest: "{{ result.stdout | default('/usr/local/lib') }}/php.ini"
+            owner: root
+            group: root
+            mode: '0644'
+      tags: php
+      
+
+    - name: php settings
+      block:
+        - name: php settings for apache
+          template:
+            src: "{{ apache.install_path | regex_replace('/((?:\\S+/)*\\S*)', '\\1') }}/conf/conf.d/httpd-php.conf.j2"
+            dest: "{{ apache.install_path }}/conf/conf.d/httpd-php.conf"
+            owner: root
+            group: root
+            mode: 0644
+          notify:
+            - daemon_reload
+            - restart_httpd
+          when: with_apache is defined and with_apache 
+            
+        - name: override php.ini
+          block:
+            - name: get php.ini configuration file path
+              shell: "/usr/local/bin/php -i | grep -E '^Configuration File' | awk -F'=> ' '{print $2}'"
+              register: result
+              check_mode: no
+              ignore_errors: True
+              
+            - name: replace php.ini to the configuration path
+              template:
+                src: usr/local/lib/php.ini
+                dest: "{{ result.stdout | default('/usr/local/lib') }}/php.ini"
+                owner: root
+                group: root
+                mode: '0644'
+          when: isreplace_phpconf is defined and isreplace_phpconf
+      tags: php_settings

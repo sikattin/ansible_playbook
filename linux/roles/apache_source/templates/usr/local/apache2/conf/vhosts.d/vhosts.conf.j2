@@ -1,0 +1,20 @@
+NameVirtualHost {{ conf.name_virtualhost }}
+
+{% for vhost in vhosts %}
+<VirtualHost {{ conf.name_virtualhost }}>
+    ServerName {{ vhost.server_name|e }}
+    DocumentRoot {{ vhost.document_root|e }}
+    ErrorLog {{ vhost.error_log|e }}
+    CustomLog {{ vhost.custom_log|e }}
+{% if vhost.directories %}
+    {% for directory in vhost.directories %}
+    <Directory {{ directory.path }}>
+        {% for k, v in directory.directives.iteritems() %}
+        {{ k|e }} {{ v|e }}
+        {% endfor %}
+    </Directory>
+    {% endfor %}
+{% endif %}
+</Virtualhost>
+{% endfor %}
+

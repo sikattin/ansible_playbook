@@ -11,11 +11,8 @@
           loop:
             - "gcc"
             - "gcc-c++"
-      when: ansible_distribution != "Ubuntu" or ansible_distribution != "Debian"
-      tags: setup_buildenv
-  
-    - name: "Setup build environment using apt"
-      block:
+          when: ansible_distribution != "Ubuntu" or ansible_distribution != "Debian"
+          
         - name: "Install C, C++ compiler"
           apt:
             name: "{{ item }}"
@@ -23,15 +20,25 @@
           loop:
             - "gcc"
             - "gcc-c++"
-      when: ansible_distribution == "Ubuntu" or ansible_distribution == "Debian"
+          when: ansible_distribution == "Ubuntu" or ansible_distribution == "Debian"
+      tags: setup_buildenv
       
+    - name: "Install apache"
+      block:
+        - name: "download apache source"
+          get_url:
+            url: "http://archive.apache.org/dist/httpd/httpd-{{ apache.version }}.tar.gz"
+            dest: "/usr/local/src/httpd-{{ apache.version }}.tar.gz"
+            checksum: "md5:http://archive.apache.org/dist/httpd/httpd-{{ apache.version }}.tar.gz.md5"
+            force: yes
+            
     - name: "Install apr"
       block:
         - name: "download apr source"
           get_url:
             url: "http://archive.apache.org/dist/apr/apr-{{ apr.version }}.tar.gz"
             dest: "/usr/local/src/apr-{{ apr.version }}.tar.gz"
-            checksum: "sha256:http://archive.apache.org/dist/apr/apr-{{ apr.version }}.tar.gz"
+            checksum: "md5:http://archive.apache.org/dist/apr/apr-{{ apr.version }}.tar.gz.md5"
             force: yes
             
         - name: "clean up the build directory"
@@ -61,6 +68,9 @@
           args:
             chdir: "/usr/local/src/bld/apr-{{ apr.version }}"
           check_mode: no
+          register: result
+          failed_when: result.rc > 0
+          changed_when: no
             
         - name: make
           make:
@@ -76,6 +86,9 @@
           args:
             executable: /bin/bash
             creates: "{{ apr.ldconf }}"
+          register: result
+          failed_when: result.rc > 0
+          changed_when: result.rc == 0
       tags: apr
       
     - name: "Install apr-util"
@@ -84,10 +97,8 @@
           get_url:
             url: "http://archive.apache.org/dist/apr/apr-util-{{ apr-util.version }}.tar.gz"
             dest: "/usr/local/src/apr-util-{{ apr-util.version }}.tar.gz"
-            checksum: "sha256:http://archive.apache.org/dist/apr/apr-util-{{ apr-util.version }}.tar.gz"
+            checksum: "md5:http://archive.apache.org/dist/apr/apr-util-{{ apr-util.version }}.tar.gz.md5"
             force: yes
-            
-        - name: "clean up the build directory"
         
       tags: apr-util
     - name: "change password for users"
@@ -97,4 +108,4 @@
         update_password: always
       with_dict: "{{ user_passwd }}"
       when: update_password == true
-  tags: add_user
+      tags: add_user

@@ -1,0 +1,6 @@
+LoadModule php{{ php.version | regex_replace('(\d)\.\d+\.\d+', '\\1') }}_module  modules/libphp{{ php.version | regex_replace('(\d)\.\d+\.\d+', '\\1') }}.so
+AddType application/x-httpd-php .php
+
+<FilesMatch \.php$>
+    SetHandler application/x-httpd-php
+</FilesMatch>

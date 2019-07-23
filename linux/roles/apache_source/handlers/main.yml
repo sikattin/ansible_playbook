@@ -1,0 +1,12 @@
+- name: restart httpd
+  service:
+    name: httpd.service
+    state: restarted
+  ignore_errors: True
+  listen: restart_httpd
+  
+- name: daemon reload
+  systemd:
+    daemon_reload: yes
+  ignore_errors: True
+  listen: daemon_reload

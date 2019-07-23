@@ -1,0 +1,18 @@
+---
+
+- name: "Install conv2img"
+  block:
+    - name: "Install glibc 32bit"
+      yum:
+        name: "ld-linux.so.2"
+        state: latest
+    
+    - name: "Copy conv2img"
+      copy:
+        src: "{{ install_path | regex_replace('/((?:\\S+/)*\\S*)', '\\1') }}/conv2img"
+        dest: "{{ install_path }}/conv2img"
+        owner: "{{ user }}"
+        group: "{{ group }}"
+        mode: 0755
+  tags: conv2img
+
