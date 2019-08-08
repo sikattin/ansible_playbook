@@ -1,0 +1,6 @@
+---
+- hosts: targets
+  become_user: root
+  become: yes
+  roles:
+    - fluentd
