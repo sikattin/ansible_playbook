@@ -1,3 +1,9 @@
 mysql:
   version: "5.5"
   release_version: "62"
+  conf:
+    basedir: /mysql
+    datadir: /dblab/var
+    log_error: /dblab/var/mysqld.err
+    pid_file: /dblab/var/mysqld.pid
+    user: mysql

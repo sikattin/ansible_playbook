@@ -13,7 +13,11 @@
             - "gcc-c++"
             - "make"
             - "autoconf"
+            - "unzip"
+            - "tar"
+            - "gzip"
           when: ansible_distribution != "Ubuntu" or ansible_distribution != "Debian"
+          notify: yum_clean_all
   
         - name: "Install C, C++ compiler, make"
           apt:
@@ -24,7 +28,11 @@
             - "gcc-c++"
             - "make"
             - "autoconf"
+            - "unzip"
+            - "tar"
+            - "gzip"
           when: ansible_distribution == "Ubuntu" or ansible_distribution == "Debian"
+          notify: yum_clean_all
       tags: setup_buildenv
 
 
@@ -34,6 +42,7 @@
           get_url:
             url: "http://archive.apache.org/dist/apr/apr-{{ apr.version }}.tar.gz"
             dest: "/usr/local/src/apr-{{ apr.version }}.tar.gz"
+            force: yes
             
         - name: "clean up the build directory"
           file:
@@ -78,6 +87,14 @@
           args:
             executable: /bin/bash
             creates: "{{ apr.ldconf }}"
+            
+        - name: delete source tarball and build directory
+          file:
+            path: "{{ item }}"
+            state: absent
+          loop:
+            - "/usr/local/src/apr-{{ apr.version }}.tar.gz"
+            - "/usr/local/src/bld/apr-{{ apr.version }}"
       tags: apr
       
       
@@ -113,7 +130,7 @@
             --enable-module=so \
             --enable-module=rewrite \
             --cache-file=/dev/null \
-            --with-apr=../apr-{{ apr.version }}
+            --with-apr=/usr/local/apr
           args:
             chdir: "/usr/local/src/bld/apr-util-{{ aprutil.version }}"
           check_mode: no
@@ -126,6 +143,14 @@
           make:
             chdir: "/usr/local/src/bld/apr-util-{{ aprutil.version }}"
             target: install
+            
+        - name: delete source tarball and build directory
+          file:
+            path: "{{ item }}"
+            state: absent
+          loop:
+            - "/usr/local/src/apr-util-{{ aprutil.version }}.tar.gz"
+            - "/usr/local/src/bld/apr-util-{{ aprutil.version }}"
       tags: apr-util
       
       
@@ -173,22 +198,6 @@
           make:
             chdir: "/usr/local/src/bld/httpd-{{ apache.version }}"
             target: install
-            
-        - name: deploy the unit file for apache
-          copy:
-            src: etc/systemd/system/httpd.service
-            dest: /etc/systemd/system/httpd.service
-            owner: root
-            group: root
-            mode: 644
-            
-        - name: deploy the initscript for apache
-          copy:
-            src: etc/init.d/httpd
-            dest: /etc/init.d/httpd
-            owner: root
-            group: root
-            mode: 0755
         
         - name: deploy the config file for apache
           template:
@@ -257,12 +266,40 @@
             group: "{{ conf.group|e }}"
             mode: '0755'
             
+        - name: delete source tarball and build directory
+          file:
+            path: "{{ item }}"
+            state: absent
+          loop:
+            - "/usr/local/src/httpd-{{ apache.version }}.tar.gz"
+            - "/usr/local/src/bld/httpd-{{ apache.version }}"
+      tags: apache
+      
+      
+    - name: service settings
+      block:
+        - name: deploy the unit file for apache
+          copy:
+            src: etc/systemd/system/httpd.service
+            dest: /etc/systemd/system/httpd.service
+            owner: root
+            group: root
+            mode: 644
+            
+        - name: deploy the initscript for apache
+          copy:
+            src: etc/init.d/httpd
+            dest: /etc/init.d/httpd
+            owner: root
+            group: root
+            mode: 0755
+            
         - name: enables httpd service on the boot and starts it 
           service:
             name: httpd
             enabled: yes
             state: restarted
-      tags: apache
+      tags: apache_service
       
 
     - name: apache vhost settings
@@ -404,4 +441,23 @@
           notify:
             - restart_httpd
       tags: apache_settings
+      
+      
+    - name: clean up
+      block:
+        - name: remove installed packages for build
+          package:
+            name: "{{ item }}"
+            state: absent
+          loop:
+            - "gcc"
+            - "gcc-c++"
+            - "make"
+            - "autoconf"
+            - "unzip"
+            - "tar"
+            - "gzip"
+          notify: yum_clean_all
+      tags: apache_cleanup
+        
 
