@@ -1,0 +1,18 @@
+<Files ~ "^\.ht">
+deny from all
+</Files>
+
+# AccessControl IP/HOST
+order deny,allow
+deny from all
+# IDC
+## aradfile01
+allow from 59.128.92.148
+# AWS
+## test-web
+allow from 10.100.152.11
+## aradfile01
+allow from 10.100.152.61
+allow from 10.100.152.62
+# for test
+allow from 39.110.234.67

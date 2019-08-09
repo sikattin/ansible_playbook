@@ -1,0 +1,430 @@
+---
+
+- name: "Install mysql"
+  block:
+    - name: "Preconfiguration setup"
+      block:
+        - name: "Install required packages for build"
+          package:
+            name: "{{ item }}"
+            state: latest
+          loop:
+            - "gcc"
+            - "gcc-c++"
+            - "make"
+            - "cmake"
+            - "tar"
+            - "unzip"
+            - "gzip"
+            - "bison"
+
+        - name: "Add group"
+          group:
+            name: mysql
+            gid: 510
+            state: present
+            
+        - name: "Add user"
+          user:
+            name: mysql
+            uid: 510
+            group: mysql
+            system: yes
+            
+        - name: "create the install directory"
+          file:
+            path: "{{ item }}"
+            state: directory
+          loop:
+            - "/mysql"
+            - "/dblab/var"
+            
+      tags: mysql_install_preconfig
+
+
+    - name: "Build and install mysql"
+      block:
+        - name: "download source tarball"
+          get_url:
+            url: "http://ftp.iij.ad.jp/pub/db/mysql/Downloads/MySQL-{{ mysql.version }}/mysql-{{ mysql.version }}.{{ mysql.release_version }}.tar.gz"
+            dest: "/usr/local/src/mysql-{{ mysql.version }}.{{ mysql.release_version }}.tar.gz"
+            checksum: "md5:http://ftp.iij.ad.jp/pub/db/mysql/Downloads/MySQL-{{ mysql.version }}/mysql-{{ mysql.version }}.{{ mysql.release_version }}.tar.gz.md5"
+            force: yes
+            
+        - name: "clean up the build directory"
+          file:
+            path: "/usr/local/src/bld/apr-{{ apr.version }}"
+            state: absent
+            
+        - name: "create the build directory"
+          file:
+            path: /usr/local/src/bld
+            state: directory
+            
+        - name: "unarchive source archive"
+          unarchive:
+            src: "/usr/local/src/mysql-{{ mysql.version }}.{{ mysql.release_version }}.tar.gz"
+            dest: /usr/local/src/bld
+            remote_src: yes
+            
+        - name: "configure mysql"
+          shell: |
+            cmake . \
+            -DCMAKE_INSTALL_PREFIX=/mysql \
+            -DMYSQL_DATADIR=/dblab/var \
+            -DDEFAULT_CHARSET=sjis
+          args:
+            chdir: "/usr/local/src/bld/mysql-{{ mysql.version }}.{{ mysql.release_version }}"
+          check_mode: no
+            
+        - name: make clean
+          make:
+            chdir: "/usr/local/src/bld/mysql-{{ mysql.version }}.{{ mysql.release_version }}"
+            target: clean
+            
+        - name: "Remove CmakeCache"
+          file:
+            path: "/usr/local/src/bld/mysql-{{ mysql.version }}.{{ mysql.release_version }}/CMakeCache.txt"
+            state: absent
+            
+        - name: make
+          make:
+            chdir: "/usr/local/src/bld/mysql-{{ mysql.version }}.{{ mysql.release_version }}"
+            
+        - name: make install
+          make:
+            chdir: "/usr/local/src/bld/mysql-{{ mysql.version }}.{{ mysql.release_version }}"
+            target: install
+          
+        - name: add ld library path
+          shell: "echo /usr/local/apr/lib > {{ apr.ldconf }}; ldconfig"
+          args:
+            executable: /bin/bash
+            creates: "{{ apr.ldconf }}"
+      tags: apr
+      
+      
+    - name: "Install apr-util"
+      block:
+        - name: download apr-util source
+          get_url:
+            url: "http://archive.apache.org/dist/apr/apr-util-{{ aprutil.version }}.tar.gz"
+            dest: "/usr/local/src/apr-util-{{ aprutil.version }}.tar.gz"
+
+        - name: "clean up the build directory"
+          file:
+            path: "/usr/local/src/bld/apr-util-{{ aprutil.version }}"
+            state: absent
+            
+        - name: "create the build directory"
+          file:
+            path: /usr/local/src/bld
+            state: directory
+            
+        - name: "unarchive source archive"
+          unarchive:
+            src: "/usr/local/src/apr-util-{{ aprutil.version }}.tar.gz"
+            dest: /usr/local/src/bld
+            remote_src: yes
+            
+        - name: "configure apr-util"
+          shell: |
+            ./configure \
+            --prefix=/usr/local/apr-util \
+            --disable-option-checking \
+            --enable-so \
+            --enable-module=so \
+            --enable-module=rewrite \
+            --cache-file=/dev/null \
+            --with-apr=../apr-{{ apr.version }}
+          args:
+            chdir: "/usr/local/src/bld/apr-util-{{ aprutil.version }}"
+          check_mode: no
+            
+        - name: make
+          make:
+            chdir: "/usr/local/src/bld/apr-util-{{ aprutil.version }}"
+            
+        - name: make install
+          make:
+            chdir: "/usr/local/src/bld/apr-util-{{ aprutil.version }}"
+            target: install
+      tags: apr-util
+      
+      
+    - name: "Install apache"
+      block:
+        - name: "download apache source"
+          get_url:
+            url: "http://archive.apache.org/dist/httpd/httpd-{{ apache.version }}.tar.gz"
+            dest: "/usr/local/src/httpd-{{ apache.version }}.tar.gz"
+            
+        - name: "clean up the build directory"
+          file:
+            path: "/usr/local/src/bld/httpd-{{ apache.version }}"
+            state: absent
+            
+        - name: "create the build directory"
+          file:
+            path: /usr/local/src/bld
+            state: directory
+            
+        - name: "unarchive source archive"
+          unarchive:
+            src: "/usr/local/src/httpd-{{ apache.version }}.tar.gz"
+            dest: /usr/local/src/bld
+            remote_src: yes
+            
+        - name: "configure apache"
+          shell: |
+            ./configure \
+            --prefix={{ apache.install_path }} \
+            --enable-so \
+            --enable-module=so \
+            --enable-module=rewrite \
+            --with-apr=/usr/local/apr \
+            --with-apr-util=/usr/local/apr-util
+          args:
+            chdir: "/usr/local/src/bld/httpd-{{ apache.version }}"
+          check_mode: no
+            
+        - name: make
+          make:
+            chdir: "/usr/local/src/bld/httpd-{{ apache.version }}"
+            
+        - name: make install
+          make:
+            chdir: "/usr/local/src/bld/httpd-{{ apache.version }}"
+            target: install
+            
+        - name: deploy the unit file for apache
+          copy:
+            src: etc/systemd/system/httpd.service
+            dest: /etc/systemd/system/httpd.service
+            owner: root
+            group: root
+            mode: 644
+            
+        - name: deploy the initscript for apache
+          copy:
+            src: etc/init.d/httpd
+            dest: /etc/init.d/httpd
+            owner: root
+            group: root
+            mode: 0755
+        
+        - name: deploy the config file for apache
+          template:
+            src: "usr/local/apache2/conf/httpd.conf.j2"
+            dest: "{{ apache.install_path }}/conf/httpd.conf"
+            owner: root
+            group: root
+            mode: 0644
+          
+        - name: create the custom_log directory
+          file:
+            path: "{{ conf.custom_log.split()[0] | dirname }}"
+            state: directory
+            owner: "{{ conf.user|e }}"
+            group: "{{ conf.group|e }}"
+          ignore_errors: True
+        
+        - name: create the error_log directory
+          file:
+            path: "{{ conf.error_log | dirname }}"
+            state: directory
+            owner: "{{ conf.user|e }}"
+            group: "{{ conf.group|e }}"
+          ignore_errors: True
+
+        - name: get binary lists of apache bin folder
+          find:
+            paths: "{{ apache.install_path }}/bin"
+          register: apache_bins
+          check_mode: no
+          ignore_errors: True
+          tags: no_duplicate_apache
+          
+        - name: create sym link to binaries
+          file:
+            src: "{{ item.path }}"
+            dest: "/usr/sbin/{{ item.path | basename }}"
+            owner: root
+            group: root
+            state: link
+          loop: "{{ apache_bins.files }}"
+          ignore_errors: True
+          tags: no_duplicate_apache
+
+        - name: create the directory for apache additional config files
+          file:
+            path: "{{ apache.install_path }}/conf/conf.d"
+            state: directory
+            owner: root
+            group: root
+            mode: '0755'
+            
+        - name: create the directory for apache vhosts config files
+          file:
+            path: "{{ apache.install_path }}/conf/vhosts.d"
+            state: directory
+            owner: root
+            group: root
+            mode: '0755'
+            
+        - name: create the directory for document root
+          file:
+            path: "{{ conf.document_root }}"
+            state: directory
+            owner: "{{ conf.user|e }}"
+            group: "{{ conf.group|e }}"
+            mode: '0755'
+            
+        - name: enables httpd service on the boot and starts it 
+          service:
+            name: httpd
+            enabled: yes
+            state: restarted
+      tags: mysql_install
+      
+
+    - name: apache vhost settings
+      block:
+        - name: create the document root for vhosts
+          file:
+            path: "{{ item.document_root }}"
+            state: directory
+            owner: "{{ conf.user }}"
+            group: "{{ conf.group }}"
+            mode: '0755'
+          loop: "{{ vhosts }}"
+          
+        - name: deploy the static config file for vhost
+          copy:
+            src: "usr/local/apache2/conf/vhosts.d/vhosts.conf"
+            dest: "{{ apache.install_path }}/conf/vhosts.d/vhosts.conf"
+            owner: root
+            group: root
+            mode: 0644
+          when: isdeploy_vhost_static
+          notify:
+            - restart_httpd
+          
+        - name: delopy the dynamic config file for vhost
+          template:
+            src: "usr/local/apache2/conf/vhosts.d/vhosts.conf.j2"
+            dest: "{{ apache.install_path }}/conf/vhosts.d/vhosts.conf"
+            owner: root
+            group: root
+            mode: 0644
+          when: not isdeploy_vhost_static
+          notify:
+            - restart_httpd
+            
+        - name: create the custom_log directories
+          file:
+            path: "{{ item.custom_log.split()[0] | dirname }}"
+            state: directory
+            owner: "{{ conf.user|e }}"
+            group: "{{ conf.group|e }}"
+          loop: "{{ vhosts }}"
+          
+        - name: create the error_log directories
+          file:
+            path: "{{ item.error_log | dirname }}"
+            state: directory
+            owner: "{{ conf.user|e }}"
+            group: "{{ conf.group|e }}"
+          loop: "{{ vhosts }}"
+      when: isdeploy_vhost_static is defined
+      tags: apache_vhost
+      
+
+    - name: deploy
+      block:
+        - name: deploy the web source from git
+          block:
+            - name: install git
+              yum:
+                name: git
+                state: latest
+              
+            - name: git checkout from the specified repository
+              git:
+                repo: "{{ git.repo|e }}"
+                dest: "{{ git.dest|e }}"
+                version: "{{ git.version }}"
+          when: isdeploy_fromgit is defined and isdeploy_fromgit
+          tags: deploy_src_fromgit
+      
+      
+        - name: deploy the web source from local
+          block:
+            - name: pattern normal
+              block:
+                - name: copy the local source to the document root
+                  copy:
+                    src: "{{ conf.document_root | regex_replace('/((?:\\S+/)*\\S*)', '\\1')|e }}/"
+                    dest: "{{ conf.document_root|e }}"
+                    owner: "{{ conf.user|e }}"
+                    group: "{{ conf.group|e }}"
+              when: isdeploy_vhost_static is not defined
+            
+            - name: pattern vhost
+              block:
+                - name: copy the local sources to the document root for vhosts
+                  copy:
+                    src: "{{ item.document_root | regex_replace('/((?:\\S+/)*\\S*)', '\\1')|e }}/"
+                    dest: "{{ item.document_root|e }}"
+                    owner: "{{ conf.user|e }}"
+                    group: "{{ conf.group|e }}"
+                  loop: "{{ vhosts }}"
+              when: isdeploy_vhost_static is defined
+          when: not isdeploy_fromgit
+          tags: deploy_src_fromlocal
+          
+          
+        - name: deploy the other resources
+          block:
+            - name: copy the local other resources
+              copy:
+                src: "{{ item | regex_replace('/((?:\\S+/)*\\S*)', '\\1')|e }}/"
+                dest: "{{ item }}"
+                owner: "{{ conf.user|e }}"
+                group: "{{ conf.group|e }}"
+              loop: "{{ other_resources }}"
+          when: other_resources is defined
+          ignore_errors: True
+          tags: deploy_others
+      tags: deploy
+
+
+    - name: apache settings
+      block:
+        - name: deploy the additional config files for apache
+          template:
+            src: "{{ item }}"
+            dest: "{{ apache.install_path }}/conf/conf.d/{{ item | basename | regex_replace('\\.j2', '') }}"
+            owner: root
+            group: root
+            mode: 0644
+          with_fileglob:
+            - "../templates{{ apache.install_path }}/conf/conf.d/*.j2"
+          ignore_errors: True
+          notify:
+            - restart_httpd
+            
+        - name: deploy the extra config files for apeche
+          template:
+            src: "{{ item }}"
+            dest: "{{ apache.install_path }}/conf/extra/{{ item | basename | regex_replace('\\.j2', '') }}"
+            owner: root
+            group: root
+            mode: 0644
+          with_fileglob:
+            - "../templates{{ apache.install_path }}/conf/extra/*.j2"
+          ignore_errors: True
+          notify:
+            - restart_httpd
+      tags: apache_settings
+
