@@ -10,3 +10,9 @@
     daemon_reload: yes
   ignore_errors: True
   listen: daemon_reload
+  
+- name: clean yum cache
+  command: yum clean all
+  args:
+    warn: no
+  listen: yum_clean_all

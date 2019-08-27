@@ -21,24 +21,24 @@
 
         - name: "Add group"
           group:
-            name: mysql
+            name: "{{ mysql.conf.user }}"
             gid: 503
             state: present
             
         - name: "Add user"
           user:
-            name: mysql
+            name: "{{ mysql.conf.user }}"
             uid: 503
             group: mysql
             system: yes
             
-        - name: "create the install directory"
+        - name: "create the install and directory"
           file:
             path: "{{ item }}"
             state: directory
           loop:
-            - "/mysql"
-            - "/dblab/var"
+            - "{{ mysql.conf.basedir }}"
+            - "{{ mysql.conf.datadir }}"
             
       tags: mysql_install_preconfig
 
@@ -54,7 +54,7 @@
             
         - name: "clean up the build directory"
           file:
-            path: "/usr/local/src/bld/apr-{{ apr.version }}"
+            path: "/usr/local/src/bld/mysql-{{ mysql.version }}.{{ mysql.release_version }}}"
             state: absent
             
         - name: "create the build directory"
@@ -71,8 +71,8 @@
         - name: "configure mysql"
           shell: |
             cmake . \
-            -DCMAKE_INSTALL_PREFIX=/mysql \
-            -DMYSQL_DATADIR=/dblab/var \
+            -DCMAKE_INSTALL_PREFIX={{ mysql.conf.basedir }} \
+            -DMYSQL_DATADIR={{ mysql.conf.datadir }} \
             -DDEFAULT_CHARSET=sjis
           args:
             chdir: "/usr/local/src/bld/mysql-{{ mysql.version }}.{{ mysql.release_version }}"
@@ -109,34 +109,6 @@
       
     - name: "Settings mysql"
       block:
-        - name: Change the owner
-          file:
-            path: "{{ item }}"
-            owner: mysql
-            group: mysql
-            recurse: yes
-          loop:
-            - "/mysql"
-            - "/dblab/var"
-            
-        - name: initialize mysql db
-          command:
-            command: /mysql/scripts/mysql_install_db --basedir=/mysql --datadir=/dblab/var --user mysql --collation-server=sjis_japanese_ci
-            
-        - name: Change the owner of install directory
-          file:
-            path: /mysql
-            owner: root
-            group: root
-            recurse: yes
-
-        - name: Change the owner of data directory
-          file:
-            path: /dblab/var
-            owner: mysql
-            group: mysql
-            recurse: yes
-            
         - name: Copy config file
           template:
             src: etc/my.cnf
@@ -144,13 +116,42 @@
             owner: root
             group: root
             
+        - name: Change the owner
+          file:
+            path: "{{ item }}"
+            owner: "{{ mysql.conf.user }}"
+            group: "{{ mysql.conf.user }}"
+            recurse: yes
+          loop:
+            - "{{ mysql.conf.basedir }}"
+            - "{{ mysql.conf.datadir }}"
+            
+        - name: initialize mysql db
+          shell: /usr/local/mysql/scripts/mysql_install_db --basedir=/usr/local/mysql --datadir=/dblab/var --user mysql --collation-server=sjis_japanese_ci
+          ignore_errors: True
+            
+        - name: Change the owner of install directory
+          file:
+            path: "{{ mysql.conf.basedir }}"
+            owner: root
+            group: root
+            recurse: yes
+
+        - name: Change the owner of data directory
+          file:
+            path: "{{ mysql.conf.datadir }}"
+            owner: "{{ mysql.conf.user }}"
+            group: "{{ mysql.conf.user }}"
+            recurse: yes
+            
         - name: Copy service script
           copy:
-            src: /mysql/support-files/mysql.server
+            src: "{{ mysql.conf.basedir }}/support-files/mysql.server"
             dest: /etc/init.d/mysqld
             owner: root
             group: root
             mode: 0755
+            remote_src: yes
             
         - name: Create directories
           file:
@@ -163,8 +164,8 @@
         - name: Change the owner
           file:
             path: "{{ item }}"
-            owner: mysql
-            group: mysql
+            owner: "{{ mysql.conf.user }}"
+            group: "{{ mysql.conf.user }}"
             recurse: yes
           loop:
             - "{{ mysql.conf.log_error | dirname }}"
@@ -180,5 +181,20 @@
             enabled: yes
             state: started
       tags: mysql_service
-            
+
+    - name: clean up
+      block:
+        - name: remove installed packages for build
+          package:
+            name: "{{ item }}"
+            state: absent
+          loop:
+            - "gcc"
+            - "gcc-c++"
+            - "cmake"
+            - "tar"
+            - "unzip"
+            - "bison"
+            - "ncurses-devel"
+          notify: yum_clean_all
 
