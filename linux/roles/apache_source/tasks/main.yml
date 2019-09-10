@@ -2,261 +2,232 @@
 
 - name: "Install and setting apache web server"
   block:
-    - name: "Setup build environment"
+    - name: Install apache web server
       block:
-        - name: "Install C, C++ compiler, make"
-          yum:
-            name: "{{ item }}"
-            state: latest
-          loop:
-            - "gcc"
-            - "gcc-c++"
-            - "make"
-            - "autoconf"
-          when: ansible_distribution != "Ubuntu" or ansible_distribution != "Debian"
-  
-        - name: "Install C, C++ compiler, make"
-          apt:
-            name: "{{ item }}"
-            state: latest
-          loop:
-            - "gcc"
-            - "gcc-c++"
-            - "make"
-            - "autoconf"
-          when: ansible_distribution == "Ubuntu" or ansible_distribution == "Debian"
-      tags: setup_buildenv
+      
+        - name: "Setup build environment"
+          block:
+            - name: "Install C, C++ compiler, make"
+              yum:
+                name: "{{ item }}"
+                state: latest
+              loop:
+                - "gcc"
+                - "gcc-c++"
+                - "make"
+                - "autoconf"
+              when: ansible_distribution != "Ubuntu" or ansible_distribution != "Debian"
+      
+            - name: "Install C, C++ compiler, make"
+              apt:
+                name: "{{ item }}"
+                state: latest
+              loop:
+                - "gcc"
+                - "gcc-c++"
+                - "make"
+                - "autoconf"
+              when: ansible_distribution == "Ubuntu" or ansible_distribution == "Debian"
+          tags: setup_buildenv
 
 
-    - name: "Install apr"
-      block:
-        - name: "download apr source"
-          get_url:
-            url: "http://archive.apache.org/dist/apr/apr-{{ apr.version }}.tar.gz"
-            dest: "/usr/local/src/apr-{{ apr.version }}.tar.gz"
-            
-        - name: "clean up the build directory"
-          file:
-            path: "/usr/local/src/bld/apr-{{ apr.version }}"
-            state: absent
-            
-        - name: "create the build directory"
-          file:
-            path: /usr/local/src/bld
-            state: directory
-            
-        - name: "unarchive source archive"
-          unarchive:
-            src: "/usr/local/src/apr-{{ apr.version }}.tar.gz"
-            dest: /usr/local/src/bld
-            remote_src: yes
-            
-        - name: "configure apr"
-          shell: >
-            ./configure
-            --prefix=/usr/local/apr
-            --disable-option-checking
-            --enable-so
-            --enable-module=so
-            --enable-module=rewrite
-            --cache-file=/dev/null
-          args:
-            chdir: "/usr/local/src/bld/apr-{{ apr.version }}"
-          check_mode: no
-            
-        - name: make
-          make:
-            chdir: "/usr/local/src/bld/apr-{{ apr.version }}"
-            
-        - name: make install
-          make:
-            chdir: "/usr/local/src/bld/apr-{{ apr.version }}"
-            target: install
+        - name: "Install apr"
+          block:
+            - name: "download apr source"
+              get_url:
+                url: "http://archive.apache.org/dist/apr/apr-{{ apr.version }}.tar.gz"
+                dest: "/usr/local/src/apr-{{ apr.version }}.tar.gz"
+                
+            - name: "clean up the build directory"
+              file:
+                path: "/usr/local/src/bld/apr-{{ apr.version }}"
+                state: absent
+                
+            - name: "create the build directory"
+              file:
+                path: /usr/local/src/bld
+                state: directory
+                
+            - name: "unarchive source archive"
+              unarchive:
+                src: "/usr/local/src/apr-{{ apr.version }}.tar.gz"
+                dest: /usr/local/src/bld
+                remote_src: yes
+                
+            - name: "configure apr"
+              shell: >
+                ./configure
+                --prefix=/usr/local/apr
+                --disable-option-checking
+                --enable-so
+                --enable-module=so
+                --enable-module=rewrite
+                --cache-file=/dev/null
+              args:
+                chdir: "/usr/local/src/bld/apr-{{ apr.version }}"
+              check_mode: no
+                
+            - name: make
+              make:
+                chdir: "/usr/local/src/bld/apr-{{ apr.version }}"
+                
+            - name: make install
+              make:
+                chdir: "/usr/local/src/bld/apr-{{ apr.version }}"
+                target: install
+              
+            - name: add ld library path
+              shell: "echo /usr/local/apr/lib > {{ apr.ldconf }}; ldconfig"
+              args:
+                executable: /bin/bash
+                creates: "{{ apr.ldconf }}"
+          tags: apr
           
-        - name: add ld library path
-          shell: "echo /usr/local/apr/lib > {{ apr.ldconf }}; ldconfig"
-          args:
-            executable: /bin/bash
-            creates: "{{ apr.ldconf }}"
-      tags: apr
-      
-      
-    - name: "Install apr-util"
-      block:
-        - name: download apr-util source
-          get_url:
-            url: "http://archive.apache.org/dist/apr/apr-util-{{ aprutil.version }}.tar.gz"
-            dest: "/usr/local/src/apr-util-{{ aprutil.version }}.tar.gz"
+          
+        - name: "Install apr-util"
+          block:
+            - name: download apr-util source
+              get_url:
+                url: "http://archive.apache.org/dist/apr/apr-util-{{ aprutil.version }}.tar.gz"
+                dest: "/usr/local/src/apr-util-{{ aprutil.version }}.tar.gz"
 
-        - name: "clean up the build directory"
-          file:
-            path: "/usr/local/src/bld/apr-util-{{ aprutil.version }}"
-            state: absent
-            
-        - name: "create the build directory"
-          file:
-            path: /usr/local/src/bld
-            state: directory
-            
-        - name: "unarchive source archive"
-          unarchive:
-            src: "/usr/local/src/apr-util-{{ aprutil.version }}.tar.gz"
-            dest: /usr/local/src/bld
-            remote_src: yes
-            
-        - name: "configure apr-util"
-          shell: |
-            ./configure \
-            --prefix=/usr/local/apr-util \
-            --disable-option-checking \
-            --enable-so \
-            --enable-module=so \
-            --enable-module=rewrite \
-            --cache-file=/dev/null \
-            --with-apr=../apr-{{ apr.version }}
-          args:
-            chdir: "/usr/local/src/bld/apr-util-{{ aprutil.version }}"
-          check_mode: no
-            
-        - name: make
-          make:
-            chdir: "/usr/local/src/bld/apr-util-{{ aprutil.version }}"
-            
-        - name: make install
-          make:
-            chdir: "/usr/local/src/bld/apr-util-{{ aprutil.version }}"
-            target: install
-      tags: apr-util
-      
-      
-    - name: "Install apache"
-      block:
-        - name: "download apache source"
-          get_url:
-            url: "http://archive.apache.org/dist/httpd/httpd-{{ apache.version }}.tar.gz"
-            dest: "/usr/local/src/httpd-{{ apache.version }}.tar.gz"
-            
-        - name: "clean up the build directory"
-          file:
-            path: "/usr/local/src/bld/httpd-{{ apache.version }}"
-            state: absent
-            
-        - name: "create the build directory"
-          file:
-            path: /usr/local/src/bld
-            state: directory
-            
-        - name: "unarchive source archive"
-          unarchive:
-            src: "/usr/local/src/httpd-{{ apache.version }}.tar.gz"
-            dest: /usr/local/src/bld
-            remote_src: yes
-            
-        - name: "configure apache"
-          shell: |
-            ./configure \
-            --prefix={{ apache.install_path }} \
-            --enable-so \
-            --enable-module=so \
-            --enable-module=rewrite \
-            --with-apr=/usr/local/apr \
-            --with-apr-util=/usr/local/apr-util
-          args:
-            chdir: "/usr/local/src/bld/httpd-{{ apache.version }}"
-          check_mode: no
-            
-        - name: make
-          make:
-            chdir: "/usr/local/src/bld/httpd-{{ apache.version }}"
-            
-        - name: make install
-          make:
-            chdir: "/usr/local/src/bld/httpd-{{ apache.version }}"
-            target: install
-            
-        - name: deploy the unit file for apache
-          copy:
-            src: etc/systemd/system/httpd.service
-            dest: /etc/systemd/system/httpd.service
-            owner: root
-            group: root
-            mode: 644
-            
-        - name: deploy the initscript for apache
-          copy:
-            src: etc/init.d/httpd
-            dest: /etc/init.d/httpd
-            owner: root
-            group: root
-            mode: 0755
-        
-        - name: deploy the config file for apache
-          template:
-            src: "usr/local/apache2/conf/httpd.conf.j2"
-            dest: "{{ apache.install_path }}/conf/httpd.conf"
-            owner: root
-            group: root
-            mode: 0644
+            - name: "clean up the build directory"
+              file:
+                path: "/usr/local/src/bld/apr-util-{{ aprutil.version }}"
+                state: absent
+                
+            - name: "create the build directory"
+              file:
+                path: /usr/local/src/bld
+                state: directory
+                
+            - name: "unarchive source archive"
+              unarchive:
+                src: "/usr/local/src/apr-util-{{ aprutil.version }}.tar.gz"
+                dest: /usr/local/src/bld
+                remote_src: yes
+                
+            - name: "configure apr-util"
+              shell: |
+                ./configure \
+                --prefix=/usr/local/apr-util \
+                --disable-option-checking \
+                --enable-so \
+                --enable-module=so \
+                --enable-module=rewrite \
+                --cache-file=/dev/null \
+                --with-apr=../apr-{{ apr.version }}
+              args:
+                chdir: "/usr/local/src/bld/apr-util-{{ aprutil.version }}"
+              check_mode: no
+                
+            - name: make
+              make:
+                chdir: "/usr/local/src/bld/apr-util-{{ aprutil.version }}"
+                
+            - name: make install
+              make:
+                chdir: "/usr/local/src/bld/apr-util-{{ aprutil.version }}"
+                target: install
+          tags: apr-util
           
-        - name: create the custom_log directory
-          file:
-            path: "{{ conf.custom_log.split()[0] | dirname }}"
-            state: directory
-            owner: "{{ conf.user|e }}"
-            group: "{{ conf.group|e }}"
-          ignore_errors: True
-        
-        - name: create the error_log directory
-          file:
-            path: "{{ conf.error_log | dirname }}"
-            state: directory
-            owner: "{{ conf.user|e }}"
-            group: "{{ conf.group|e }}"
-          ignore_errors: True
+          
+        - name: "Install apache"
+          block:
+            - name: "download apache source"
+              get_url:
+                url: "http://archive.apache.org/dist/httpd/httpd-{{ apache.version }}.tar.gz"
+                dest: "/usr/local/src/httpd-{{ apache.version }}.tar.gz"
+                
+            - name: "clean up the build directory"
+              file:
+                path: "/usr/local/src/bld/httpd-{{ apache.version }}"
+                state: absent
+                
+            - name: "create the build directory"
+              file:
+                path: /usr/local/src/bld
+                state: directory
+                
+            - name: "unarchive source archive"
+              unarchive:
+                src: "/usr/local/src/httpd-{{ apache.version }}.tar.gz"
+                dest: /usr/local/src/bld
+                remote_src: yes
+                
+            - name: "configure apache"
+              shell: |
+                ./configure \
+                --prefix={{ apache.install_path }} \
+                --enable-so \
+                --enable-module=so \
+                --enable-module=rewrite \
+                --with-apr=/usr/local/apr \
+                --with-apr-util=/usr/local/apr-util
+              args:
+                chdir: "/usr/local/src/bld/httpd-{{ apache.version }}"
+              check_mode: no
+                
+            - name: make
+              make:
+                chdir: "/usr/local/src/bld/httpd-{{ apache.version }}"
+                
+            - name: make install
+              make:
+                chdir: "/usr/local/src/bld/httpd-{{ apache.version }}"
+                target: install
+                
+            - name: deploy the unit file for apache
+              copy:
+                src: etc/systemd/system/httpd.service
+                dest: /etc/systemd/system/httpd.service
+                owner: root
+                group: root
+                mode: 644
+                
+            - name: deploy the initscript for apache
+              copy:
+                src: etc/init.d/httpd
+                dest: /etc/init.d/httpd
+                owner: root
+                group: root
+                mode: 0755
 
-        - name: get binary lists of apache bin folder
-          find:
-            paths: "{{ apache.install_path }}/bin"
-          register: apache_bins
-          check_mode: no
-          ignore_errors: True
-          tags: no_duplicate_apache
-          
-        - name: create sym link to binaries
-          file:
-            src: "{{ item.path }}"
-            dest: "/usr/sbin/{{ item.path | basename }}"
-            owner: root
-            group: root
-            state: link
-          loop: "{{ apache_bins.files }}"
-          ignore_errors: True
-          tags: no_duplicate_apache
-          
-        - name: create the directories includes additional config files
-          file:
-            path: "{{ item }}"
-            state: directory
-            owner: root
-            group: root
-            mode: '0755'
-          loop: "{{ apache.include_dirs }}"
-            
-        - name: create the directory for document root
-          file:
-            path: "{{ conf.document_root }}"
-            state: directory
-            owner: "{{ conf.user|e }}"
-            group: "{{ conf.group|e }}"
-            mode: '0755'
-            
-        - name: enables httpd service on the boot and starts it 
-          service:
-            name: httpd
-            enabled: yes
-            state: restarted
-      tags: apache
-      
+            - name: get binary lists of apache bin folder
+              find:
+                paths: "{{ apache.install_path }}/bin"
+              register: apache_bins
+              check_mode: no
+              ignore_errors: True
+              tags: no_duplicate_apache
+              
+            - name: create sym link to binaries
+              file:
+                src: "{{ item.path }}"
+                dest: "/usr/sbin/{{ item.path | basename }}"
+                owner: root
+                group: root
+                state: link
+              loop: "{{ apache_bins.files }}"
+              ignore_errors: True
+              tags: no_duplicate_apache
+              
+            - name: create the directories includes additional config files
+              file:
+                path: "{{ item }}"
+                state: directory
+                owner: root
+                group: root
+                mode: '0755'
+              loop: "{{ apache.include_dirs }}"
+                
+            - name: enables httpd service on the boot and starts it 
+              service:
+                name: httpd
+                enabled: yes
+                state: restarted
+          tags: apache
+      tags: install_apache
 
     - name: apache vhost settings
       block:
@@ -272,7 +243,7 @@
         - name: deploy the static config file for vhost
           copy:
             src: "usr/local/apache2/conf/vhosts.d/vhosts.conf"
-            dest: "{{ apache.install_path }}/conf/vhosts.d/vhosts.conf"
+            dest: "{{ apache.install_path }}/{{ apache.vhosts_confdir }}/vhosts.conf"
             owner: root
             group: root
             mode: 0644
@@ -283,7 +254,7 @@
         - name: deploy the dynamic config file for vhost
           template:
             src: "usr/local/apache2/conf/vhosts.d/vhosts.conf.j2"
-            dest: "{{ apache.install_path }}/conf/vhosts.d/vhosts.conf"
+            dest: "{{ apache.install_path }}/{{ apache.vhosts_confdir }}/vhosts.conf"
             owner: root
             group: root
             mode: 0644
@@ -330,7 +301,7 @@
       
         - name: deploy the web source from local
           block:
-            - name: pattern normal
+            - name: pattern single host
               block:
                 - name: copy the local source to the document root
                   copy:
@@ -338,7 +309,7 @@
                     dest: "{{ conf.document_root|e }}"
                     owner: "{{ conf.user|e }}"
                     group: "{{ conf.group|e }}"
-              when: isdeploy_vhost_static is not defined
+              when: vhosts is not defined
             
             - name: pattern vhost
               block:
@@ -349,7 +320,7 @@
                     owner: "{{ conf.user|e }}"
                     group: "{{ conf.group|e }}"
                   loop: "{{ vhosts }}"
-              when: isdeploy_vhost_static is defined
+              when: vhosts is defined
           when: not isdeploy_fromgit
           tags: deploy_src_fromlocal
           
@@ -366,20 +337,48 @@
           when: other_resources is defined
           ignore_errors: True
           tags: deploy_others
-      tags: deploy
+      tags: apache_deploy
 
 
     - name: apache settings
       block:
+      
+        - name: create the custom_log directory
+          file:
+            path: "{{ conf.custom_log.split()[0] | dirname }}"
+            state: directory
+            owner: "{{ conf.user|e }}"
+            group: "{{ conf.group|e }}"
+          ignore_errors: True
+        
+        - name: create the error_log directory
+          file:
+            path: "{{ conf.error_log | dirname }}"
+            state: directory
+            owner: "{{ conf.user|e }}"
+            group: "{{ conf.group|e }}"
+          ignore_errors: True
+          
+        - name: deploy the config file for apache
+          template:
+            src: "usr/local/apache2/conf/httpd.conf.j2"
+            dest: "{{ apache.install_path }}/conf/httpd.conf"
+            owner: root
+            group: root
+            mode: 0644
+          when: overwrite_conf is defined and overwrite_conf
+          notify:
+            - restart_httpd
+            
         - name: deploy the additional config files for apache
           template:
             src: "{{ item }}"
-            dest: "{{ apache.install_path }}/conf/conf.d/{{ item | basename | regex_replace('\\.j2', '') }}"
+            dest: "{{ apache.install_path }}/{{ apache.additional_confdir }}/{{ item | basename | regex_replace('\\.j2', '') }}"
             owner: root
             group: root
             mode: 0644
           with_fileglob:
-            - "../templates{{ apache.install_path }}/conf/conf.d/*.j2"
+            - "../templates{{ apache.install_path }}/{{ apache.additional_confdir }}/*.j2"
           ignore_errors: True
           notify:
             - restart_httpd
@@ -396,5 +395,6 @@
           ignore_errors: True
           notify:
             - restart_httpd
+      when: conf is defined and conf
       tags: apache_settings
-
+  tags: apache_all

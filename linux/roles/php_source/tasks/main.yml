@@ -125,8 +125,8 @@
       block:
         - name: php settings for apache
           template:
-            src: "{{ apache.install_path | regex_replace('/((?:\\S+/)*\\S*)', '\\1') }}/conf/conf.d/httpd-php.conf.j2"
-            dest: "{{ apache.install_path }}/conf/conf.d/httpd-php.conf"
+            src: "{{ apache.additional_confdir | regex_replace('/((?:\\S+/)*\\S*)', '\\1') }}/httpd-php.conf.j2"
+            dest: "{{ apache.additional_confdir }}/httpd-php.conf"
             owner: root
             group: root
             mode: 0644

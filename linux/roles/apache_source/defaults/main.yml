@@ -1,10 +1,12 @@
 isdeploy_fromgit: False
 isdeploy_vhost_static: True
+overwrite_conf: True
 git:
   repo: ""
   dest: ""
   version: ""
 conf:
+  server_name: "example.jp"
   user: "daemon"
   group: "daemon"
   listen_port: 80
@@ -13,21 +15,22 @@ conf:
   error_log: '"logs/error_log"'
   name_virtualhost: "*:80"
 
-### Apache VirtualHosts Settings
-## Following variables is required to set Vhosts
+#### Apache VirtualHosts Settings
+### Following variables is required to set Vhosts
 ## - vhosts[list]... list of VirtualHosts
 ## - vhosts[].server_name... ServerName directive
 ## - vhosts[].document_root... DocumentRoot directive in this vhosts
 ## - vhosts[].error_log... ErrorLog directive in this vhosts
 ## - vhosts[].custom_log... CustomLog directive in this vhosts
 ##
-## Following variables is optional
+### Following variables is optional.
+### Only when `isdeploy_vhost_static` is False, following variables is enabled
 ## - vhosts[].directories[list]... list of Directory directive
 ## - vhosts[].directories[].path... The value of Directory directive
 ## - vhosts[].directories[].directives... Expands child variables to directives in Directory directive
 vhosts:
   - server_name: "example.jp"
-    document_root: "/webroot"
+    document_root: "/webroot/siteA"
     error_log: "/webroot/logs/error_example.log"
     custom_log: "/webroot/logs/access_example.log combined"
     directories:
