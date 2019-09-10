@@ -232,22 +232,15 @@
           loop: "{{ apache_bins.files }}"
           ignore_errors: True
           tags: no_duplicate_apache
-
-        - name: create the directory for apache additional config files
+          
+        - name: create the directories includes additional config files
           file:
-            path: "{{ apache.install_path }}/conf/conf.d"
+            path: "{{ item }}"
             state: directory
             owner: root
             group: root
             mode: '0755'
-            
-        - name: create the directory for apache vhosts config files
-          file:
-            path: "{{ apache.install_path }}/conf/vhosts.d"
-            state: directory
-            owner: root
-            group: root
-            mode: '0755'
+          loop: "{{ apache.include_dirs }}"
             
         - name: create the directory for document root
           file:
@@ -283,18 +276,18 @@
             owner: root
             group: root
             mode: 0644
-          when: isdeploy_vhost_static
+          when: isdeploy_vhost_static is defined and isdeploy_vhost_static
           notify:
             - restart_httpd
           
-        - name: delopy the dynamic config file for vhost
+        - name: deploy the dynamic config file for vhost
           template:
             src: "usr/local/apache2/conf/vhosts.d/vhosts.conf.j2"
             dest: "{{ apache.install_path }}/conf/vhosts.d/vhosts.conf"
             owner: root
             group: root
             mode: 0644
-          when: not isdeploy_vhost_static
+          when: isdeploy_vhost_static is defined and not isdeploy_vhost_static
           notify:
             - restart_httpd
             
@@ -313,7 +306,7 @@
             owner: "{{ conf.user|e }}"
             group: "{{ conf.group|e }}"
           loop: "{{ vhosts }}"
-      when: isdeploy_vhost_static is defined
+      when: vhosts is defined
       tags: apache_vhost
       
 

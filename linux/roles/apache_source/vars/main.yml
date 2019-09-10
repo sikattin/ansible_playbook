@@ -6,3 +6,6 @@ aprutil:
 apache:
   install_path: "/usr/local/apache2"
   version: "2.2.34"
+  include_dirs:
+    - "{{ apache.install_path }}/conf/conf.d"
+    - "{{ apache.install_path }}/conf/vhosts.d"
