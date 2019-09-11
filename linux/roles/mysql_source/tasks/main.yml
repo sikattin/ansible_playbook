@@ -32,7 +32,7 @@
             group: mysql
             system: yes
             
-        - name: "create the install and directory"
+        - name: "create the install and data directory"
           file:
             path: "{{ item }}"
             state: directory
