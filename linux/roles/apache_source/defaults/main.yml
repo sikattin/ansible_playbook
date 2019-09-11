@@ -1,36 +1,42 @@
 isdeploy_fromgit: False
 isdeploy_vhost_static: True
+overwrite_conf: True
 git:
   repo: ""
   dest: ""
   version: ""
 conf:
+  server_root: "/usr/local/apache2"
+  server_name: "example.jp"
   user: "daemon"
   group: "daemon"
   listen_port: 80
   document_root: "/usr/local/apache2/htdocs"
-  custom_log: '"logs/access_log" common'
-  error_log: '"logs/error_log"'
+  custom_log: 'logs/access_log common'
+  error_log: 'logs/error_log'
   name_virtualhost: "*:80"
+
+#### Apache VirtualHosts Settings
+### Following variables is required to set Vhosts
+## - vhosts[list]... list of VirtualHosts
+## - vhosts[].server_name... ServerName directive
+## - vhosts[].document_root... DocumentRoot directive in this vhosts
+## - vhosts[].error_log... ErrorLog directive in this vhosts
+## - vhosts[].custom_log... CustomLog directive in this vhosts
+##
+### Following variables is optional.
+### Only when `isdeploy_vhost_static` is False, following variables is enabled
+## - vhosts[].directories[list]... list of Directory directive
+## - vhosts[].directories[].path... The value of Directory directive
+## - vhosts[].directories[].directives... Expands child variables to directives in Directory directive
 vhosts:
-  - server_name: "guildem.arad.jp"
-    document_root: "/d_fighter/guildem.arad.jp"
-    error_log: "/d_fighter/logs/httpd/error_guildem.log"
-    custom_log: "/d_fighter/logs/httpd/access_guildem.log combined"
+  - server_name: "example.jp"
+    document_root: "/webroot/siteA"
+    error_log: "/webroot/logs/error_example.log"
+    custom_log: "/webroot/logs/access_example.log combined"
     directories:
-      - path: "/d_fighter/guildem.arad.jp"
+      - path: "/webroot"
         directives:
             Options: "FollowSymLinks ExecCGI IncludesNoExec"
-  - server_name: "guildemup.arad.jp"
-    document_root: "/d_fighter/guildemup.arad.jp"
-    error_log: "/d_fighter/logs/httpd/error_guildemup.log"
-    custom_log: "/d_fighter/logs/httpd/access_guildemup.log combined"
-    directories:
-      - path: "/d_fighter/guildemup.arad.jp"
-        directives:
-            Options: "FollowSymLinks ExecCGI IncludesNoExec"
-            AllowOverride: "all"
-            Order: "deny,allow"
 other_resources:
-  - "/d_fighter/core"
-  - "/d_fighter/test_html"
+  - "/webroot/others"

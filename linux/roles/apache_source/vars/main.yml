@@ -6,3 +6,8 @@ aprutil:
 apache:
   install_path: "/usr/local/apache2"
   version: "2.2.34"
+  additional_confdir: "conf/conf.d"
+  vhosts_confdir: "conf/vhosts.d"
+  include_dirs:
+    - "/usr/local/apache2/conf/conf.d"
+    - "/usr/local/apache2/conf/vhosts.d"

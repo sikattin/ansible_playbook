@@ -6,34 +6,15 @@
       block:
         - name: "Install C, C++ compiler, make"
           yum:
-            name: "{{ item }}"
+            name: "{{ php_packages.rhel }}"
             state: latest
-          loop:
-            - "gcc"
-            - "gcc-c++"
-            - "make"
-            - "autoconf"
-            - "libtool"
-            - "bison"
-            - "zlib"
-            - "libxml2-devel"
           when: ansible_distribution != "Ubuntu" or ansible_distribution != "Debian"
+          notify: yum_clean
   
         - name: "Install C, C++ compiler, make"
           apt:
-            name: "{{ item }}"
+            name: "{{ php_packages.debian }}"
             state: latest
-          loop:
-            - "gcc"
-            - "gcc-c++"
-            - "make"
-            - "autoconf"
-            - "libtool"
-            - "bison"
-            - "zlib1g"
-            - "zlib1g-dev"
-            - "libxml2"
-            - "libxml2-dev"
           when: ansible_distribution == "Ubuntu" or ansible_distribution == "Debian"
       tags: setup_buildenv
 
@@ -45,6 +26,7 @@
             name: pcre-devel
             state: latest
           when: ansible_distribution != "Ubuntu" or ansible_distribution != "Debian"
+          notify: yum_clean
           
         - name: "Install libpcre-dev"
           apt:
@@ -58,12 +40,12 @@
       block:
         - name: "download php source of release version"
           get_url:
-            url: "https://www.php.net/distributions/php-{{ php.version }}.tar.gz"
-            dest: "/usr/local/src/php-{{ php.version }}.tar.gz"
+            url: "https://www.php.net/distributions/php-{{ php.version }}.{{ php.releaseno }}.tar.gz"
+            dest: "/usr/local/src/php-{{ php.version }}.{{ php.releaseno }}.tar.gz"
             
         - name: "clean up the build directory"
           file:
-            path: "/usr/local/src/bld/php-{{ php.version }}"
+            path: "/usr/local/src/bld/php-{{ php.version }}.{{ php.releaseno }}"
             state: absent
             
         - name: "create the build directory"
@@ -73,9 +55,15 @@
             
         - name: "unarchive source archive"
           unarchive:
-            src: "/usr/local/src/php-{{ php.version }}.tar.gz"
+            src: "/usr/local/src/php-{{ php.version }}.{{ php.releaseno }}.tar.gz"
             dest: /usr/local/src/bld
             remote_src: yes
+            
+        - name: "Patch if php version is 5.3 and libxml2 version is newer than 2.9.0"
+          shell: "yum install -y curl patch && curl -s https://mail.gnome.org/archives/xml/2012-August/txtbgxGXAvz4N.txt | patch -p0"
+          args:
+            chdir: "/usr/local/src/bld/php-{{ php.version }}.{{ php.releaseno }}"
+          when: is_patch
             
         - name: "configure php with apache"
           shell: |
@@ -86,36 +74,30 @@
             --enable-mbstring \
             --with-zlib
           args:
-            chdir: "/usr/local/src/bld/php-{{ php.version }}"
+            chdir: "/usr/local/src/bld/php-{{ php.version }}.{{ php.releaseno }}"
           check_mode: no
           when: with_apache is defined and with_apache
           
         - name: "configure php"
-          shell: |
-            ./configure \
-            --with-apxs2={{ apache.install_path }}/bin/apxs \
-            --enable-sockets \
-            --enable-mbregex \
-            --enable-mbstring \
-            --with-zlib
+          shell: "{{ php_configure }}"
           args:
-            chdir: "/usr/local/src/bld/php-{{ php.version }}"
+            chdir: "/usr/local/src/bld/php-{{ php.version }}.{{ php.releaseno }}"
           check_mode: no
           when: with_apache is not defined or not with_apache 
             
         - name: make
           make:
-            chdir: "/usr/local/src/bld/php-{{ php.version }}"
+            chdir: "/usr/local/src/bld/php-{{ php.version }}.{{ php.releaseno }}"
             
         - name: make install
           make:
-            chdir: "/usr/local/src/bld/php-{{ php.version }}"
+            chdir: "/usr/local/src/bld/php-{{ php.version }}.{{ php.releaseno }}"
             target: install
             
         - name: loads installed shared library
-          shell: ./libtool --finish /usr/local/src/bld/php-{{ php.version }}/libs
+          shell: ./libtool --finish /usr/local/src/bld/php-{{ php.version }}.{{ php.releaseno }}/libs
           args:
-            chdir: "/usr/local/src/bld/php-{{ php.version }}"
+            chdir: "/usr/local/src/bld/php-{{ php.version }}.{{ php.releaseno }}"
         
         - name: get php.ini configuration file path
           shell: "/usr/local/bin/php -i | grep -E '^Configuration File' | awk -F'=> ' '{print $2}'"
@@ -125,11 +107,17 @@
           
         - name: copy php.ini to the default configuration file path
           copy:
-            src: "/usr/local/src/bld/php-{{ php.version }}/php.ini-development"
+            src: "/usr/local/src/bld/php-{{ php.version }}.{{ php.releaseno }}/php.ini-development"
             dest: "{{ result.stdout | default('/usr/local/lib') }}/php.ini"
             owner: root
             group: root
             mode: '0644'
+            
+        - name: remove downloaded source archive
+          file:
+            path: "/usr/local/src/php-{{ php.version }}.{{ php.releaseno }}.tar.gz"
+            state: absent
+            
       tags: php
       
 
@@ -137,8 +125,8 @@
       block:
         - name: php settings for apache
           template:
-            src: "{{ apache.install_path | regex_replace('/((?:\\S+/)*\\S*)', '\\1') }}/conf/conf.d/httpd-php.conf.j2"
-            dest: "{{ apache.install_path }}/conf/conf.d/httpd-php.conf"
+            src: "{{ apache.additional_confdir | regex_replace('/((?:\\S+/)*\\S*)', '\\1') }}/httpd-php.conf.j2"
+            dest: "{{ apache.additional_confdir }}/httpd-php.conf"
             owner: root
             group: root
             mode: 0644
@@ -163,4 +151,140 @@
                 group: root
                 mode: '0644'
           when: isreplace_phpconf is defined and isreplace_phpconf
+          
+        - name: parse additional .ini scan directory
+          shell: "/usr/local/bin/php --ini | grep 'Scan for' | awk -F':' '{print $2}' | sed -e 's/ //g'"
+          register: additional_inipath
+          
+        - name: deploy additional .ini file
+          block:
+            - name: create the directory deploy additional ini files if doesn't exist
+              file:
+                path: "{{ additional_inipath }}"
+                state: directory
+                
+            - name: deploy additional .ini file
+              copy:
+                src: "{{ item }}"
+                dest: /etc/php.d./
+                owner: root
+                group: root
+              with_fileglob:
+                - "etc/php.d/*.ini"
+          when: additional_inipath != "(none)"
+          
+        - name: parse php extension_dir
+          shell: "/usr/local/bin/php -i | grep -P '^extension_dir' | awk -F'=>' '{print $2}' | sed -e 's/ //g'"
+          register: php_exdir
+          
+        - name: find shared extension modules
+          find:
+            paths: "{{ php_exdir.stdout }}"
+            patterns: '*.so'
+          register: ex_modules
+          
+        - name: enable shared extension modules
+          block:
+            - name: copy shell script
+              copy:
+                src: tmp/php_sharedexts_createini.sh
+                dest: /tmp/php_sharedexts_createini.sh
+                owner: root
+                group: root
+                mode: 0755
+            
+            - name: convert newline code from CRLF to LF
+              shell: "sed -i -e 's/\r//g' /tmp/php_sharedexts_createini.sh"
+                    
+            - name: create additional config files to enable detected shared extension modules
+              shell: "./php_sharedexts_createini.sh {{ php_exdir.stdout }}"
+              args:
+                chdir: /tmp
+                
+            - name: remove shell script
+              file:
+                path: /tmp/php_sharedexts_createini.sh
+                state: absent
+                
+          when: ex_modules.files
       tags: php_settings
+      
+    - name: php install modules
+      block:
+        - name: install ZendGuardLoader
+          block:
+            - name: copy archive with ZendGuardLoader shared extension module
+              copy:
+                src: tmp/ZendGuardLoader-php-5.3-linux-glibc23-x86_64.tar.gz
+                dest: /tmp/ZendGuardLoader-php-5.3-linux-glibc23-x86_64.tar.gz
+                owner: root
+                group: root
+                
+            - name: unarchive an archive
+              unarchive:
+                src: /tmp/ZendGuardLoader-php-5.3-linux-glibc23-x86_64.tar.gz
+                dest: /tmp
+                remote_src: yes
+                
+            - name: create the lib directory for ZendGuardLoader
+              file:
+                path: /usr/local/Zend/lib/GuardLoader
+                state: directory
+                
+            - name: copy ZendGuardLoader shared extension module
+              copy:
+                src: /tmp/ZendGuardLoader-php-5.3-linux-glibc23-x86_64/php-5.3.x/ZendGuardLoader.so
+                dest: /usr/local/Zend/lib/GuardLoader/ZendGuardLoader.so
+                owner: root
+                group: root
+                
+            - name: parse additional .ini scan directory
+              shell: "/usr/local/bin/php --ini | grep 'Scan for' | awk -F':' '{print $2}' | sed -e 's/ //g'"
+              register: additional_inipath
+              
+            - name: add settings for ZendGuardLoader to additional config file
+              block:
+                - name: create additional config file for ZendGuardLoader
+                  file:
+                    path: "{{ additional_inipath.stdout }}/Zend.ini"
+                    state: touch
+                    
+                - name: add lines to additional config file
+                  blockinfile:
+                    path: "{{ additional_inipath.stdout }}/Zend.ini"
+                    block: |
+                      zend_extension=/usr/local/Zend/lib/GuardLoader/ZendGuardLoader.so
+                      zend_loader.enable=1
+                      zend_loader.disable_licensing=0
+                      zend_loader.obfuscation_level_support=3
+              when: additional_inipath.stdout != "(none)"
+              
+            - name: add settings for ZendGuardLoader to additional config file
+              blockinfile:
+                path: "{{ additional_inipath.stdout }}/Zend.ini"
+                block: |
+                  zend_extension=/usr/local/Zend/lib/GuardLoader/ZendGuardLoader.so
+                  zend_loader.enable=1
+                  zend_loader.disable_licensing=0
+                  zend_loader.obfuscation_level_support=3
+              when: additional_inipath.stdout == "(none)"
+              
+            - name: remove copied archive and unarchived contents of ZendGuardLoader
+              file:
+                path: "{{ item }}"
+                state: absent
+              loop:
+                - "/tmp/ZendGuardLoader-php-5.3-linux-glibc23-x86_64.tar.gz"
+                - "/tmp/ZendGuardLoader-php-5.3-linux-glibc23-x86_64"
+              
+          tags: php_install_modules_ZendGL
+          when: php.version == '5.3' and enable_zendgl
+      tags: php_install_modules
+    
+    - name: Remove unnecessary installed packages
+      yum:
+        name: "{{ php_rm_packages.rhel }}"
+        state: absent
+      when: ansible_distribution != "Ubuntu" or ansible_distribution != "Debian"
+      notify: yum_clean
+      tags: php_remove_packages
