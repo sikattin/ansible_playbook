@@ -6,13 +6,14 @@ git:
   dest: ""
   version: ""
 conf:
+  server_root: "/usr/local/apache2"
   server_name: "example.jp"
   user: "daemon"
   group: "daemon"
   listen_port: 80
   document_root: "/usr/local/apache2/htdocs"
-  custom_log: '"logs/access_log" common'
-  error_log: '"logs/error_log"'
+  custom_log: 'logs/access_log common'
+  error_log: 'logs/error_log'
   name_virtualhost: "*:80"
 
 #### Apache VirtualHosts Settings

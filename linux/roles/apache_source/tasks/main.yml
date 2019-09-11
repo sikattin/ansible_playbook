@@ -263,20 +263,22 @@
             - restart_httpd
             
         - name: create the custom_log directories
-          file:
-            path: "{{ item.custom_log.split()[0] | dirname }}"
-            state: directory
-            owner: "{{ conf.user|e }}"
-            group: "{{ conf.group|e }}"
+          shell: "mkdir -p {{ item.custom_log.split()[0] | dirname }}"
+          args:
+            chdir: "{{ conf.server_root }}"
+            warn: false
           loop: "{{ vhosts }}"
+          register: res
+          changed_when: res.rc == 0
           
         - name: create the error_log directories
-          file:
-            path: "{{ item.error_log | dirname }}"
-            state: directory
-            owner: "{{ conf.user|e }}"
-            group: "{{ conf.group|e }}"
+          shell: "mkdir -p {{ item.error_log | dirname }}"
+          args:
+            chdir: "{{ conf.server_root }}"
+            warn: false
           loop: "{{ vhosts }}"
+          register: res
+          changed_when: res.rc == 0
       when: vhosts is defined
       tags: apache_vhost
       
@@ -344,21 +346,41 @@
       block:
       
         - name: create the custom_log directory
-          file:
-            path: "{{ conf.custom_log.split()[0] | dirname }}"
-            state: directory
-            owner: "{{ conf.user|e }}"
-            group: "{{ conf.group|e }}"
-          ignore_errors: True
+          block:
+            - file:
+                path: "{{ conf.server_root }}/{{ conf.custom_log.split()[0] | dirname }}"
+                state: directory
+                owner: "{{ conf.user|e }}"
+                group: "{{ conf.group|e }}"
+              ignore_errors: True
+              when: not conf.custom_log.split()[0].startswith('/')
+              
+            - file:
+                path: "{{ conf.custom_log.split()[0] | dirname }}"
+                state: directory
+                owner: "{{ conf.user|e }}"
+                group: "{{ conf.group|e }}"
+              ignore_errors: True
+              when: conf.custom_log.split()[0].startswith('/')
         
         - name: create the error_log directory
-          file:
-            path: "{{ conf.error_log | dirname }}"
-            state: directory
-            owner: "{{ conf.user|e }}"
-            group: "{{ conf.group|e }}"
-          ignore_errors: True
-          
+          block:
+            - file:
+                path: "{{ conf.server_root }}/{{ conf.error_log | dirname }}"
+                state: directory
+                owner: "{{ conf.user|e }}"
+                group: "{{ conf.group|e }}"
+              ignore_errors: True
+              when: not conf.error_log.startswith('/')
+
+            - file:
+                path: "{{ conf.error_log | dirname }}"
+                state: directory
+                owner: "{{ conf.user|e }}"
+                group: "{{ conf.group|e }}"
+              ignore_errors: True
+              when: conf.error_log.startswith('/')
+              
         - name: deploy the config file for apache
           template:
             src: "usr/local/apache2/conf/httpd.conf.j2"
