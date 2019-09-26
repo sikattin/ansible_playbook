@@ -1,0 +1,33 @@
+is_containerd: False
+redis_packages:
+  rhel:
+    - "gcc"
+    - "make"
+    - "wget"
+    - "tar"
+    - "gzip"
+    - "procps-ng"
+  debian:
+    - "gcc"
+    - "make"
+    - "wget"
+    - "tar"
+    - "gzip"
+    - "procps-ng"
+php_rm_packages:
+  rhel:
+    - "gcc"
+    - "make"
+    - "wget"
+    - "tar"
+    - "gzip"
+  debian:
+    - "gcc"
+    - "make"
+    - "wget"
+    - "tar"
+    - "gzip"
+conf:
+  port: 6379
+  datadir_base: "/var/lib/redis"
+  log_basepath: "/var/log"

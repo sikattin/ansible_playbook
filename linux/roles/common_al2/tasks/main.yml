@@ -202,6 +202,52 @@
               line: "{{ item.name }}={{ item.value }}"
             loop: "{{ zabbix.conf_items }}"
             notify: restart_zabbix_agent
+        tags: zabbix_agent_config
+        
+      - name: zabbix agent userparameters
+        block:
+          - name: copy config files for userparamaters
+            copy:
+              src: "{{ item }}"
+              dest: "{{ zabbix.include_dir }}"
+              owner: root
+              group: root
+              mode: 0644
+            with_fileglob:
+              - "{{ zabbix.include_dir | regex_replace('/((?:\\S+/)*\\S*)', '\\1') }}/*.conf"
+            notify: restart_zabbix_agent
+            
+          - name: create the directory
+            file:
+              path: /var/lib/zabbix
+              state: directory
+              owner: zabbix
+              group: zabbix
+              
+          - name: copy user modules/scripts
+            copy:
+              src: "var/lib/zabbix/{{ item.path }}"
+              dest: /var/lib/zabbix
+              owner: zabbix
+              group: zabbix
+            with_filetree:
+              - "files/var/lib/zabbix/"
+              
+          - name: search executable files
+            find:
+              paths: /var/lib/zabbix
+              patterns: '*.sh'
+            register: exec_files
+            
+          - name: change modes of executable files
+            file:
+              path: "{{ item.path }}"
+              owner: zabbix
+              group: zabbix
+              mode: 0755
+            loop: "{{ register.files }}"
+              
+        tags: zabbix_agent_userparams
     tags: zabbix_agent
     
   - name: sudo settings

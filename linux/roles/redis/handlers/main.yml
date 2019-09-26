@@ -1,0 +1,22 @@
+- name: restart httpd
+  service:
+    name: httpd.service
+    state: restarted
+  ignore_errors: True
+  listen: restart_httpd
+  
+- name: daemon reload
+  systemd:
+    daemon_reload: yes
+  ignore_errors: True
+  listen: daemon_reload
+  
+- name: yum cache clean
+  shell: "yum clean all"
+  listen: yum_clean
+  
+- name: yum cache clean
+  file:
+    path: /var/cache/yum
+    state: absent
+  listen: yum_clean
