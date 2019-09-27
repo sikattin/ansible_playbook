@@ -6,15 +6,15 @@ redis_packages:
     - "wget"
     - "tar"
     - "gzip"
-    - "procps-ng"
+    - "procps"
   debian:
     - "gcc"
     - "make"
     - "wget"
     - "tar"
     - "gzip"
-    - "procps-ng"
-php_rm_packages:
+    - "procps"
+redis_rm_packages:
   rhel:
     - "gcc"
     - "make"

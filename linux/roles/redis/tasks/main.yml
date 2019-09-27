@@ -63,6 +63,11 @@
           register: res
           changed_when: res.rc == 0
           
+        - name: remove redis source tarball
+          file:
+            path: "/usr/local/src/redis-{{ redis.version }}.{{ redis.releaseno }}.tar.gz"
+            state: absent
+            
       tags: install_redis
       
     - name: "Settings redis"
@@ -100,9 +105,32 @@
           service:
             name: "redis_{{ conf.port }}"
             enabled: yes
+          when: not is_containerd
           
       tags: redis_settings
       
+    - name: remove installed packages for build
+      block:
+        - name: remove installed rpm packages
+          yum:
+            name: "{{ redis_rm_packages.rhel }}"
+            state: absent
+          when: ansible_os_family != "Debian" or ansible_distribution != "Suse"
+          notify: yum_clean
+          
+        - name: remove installed deb packages
+          apt:
+            name: "{{ redis.rm_packages.debian }}"
+            state: absent
+          when: ansible_os_family == "Debian"
+          
+      tags: redis_remove_packages
+      
+    - name: remove build directory
+      file:
+        path: "/usr/local/src/bld/redis-{{ redis.version }}.{{ redis.releaseno }}"
+        state: absent
+        
     - name: reboot the machine
       reboot:
         msg: "Start rebooting by ansible"
