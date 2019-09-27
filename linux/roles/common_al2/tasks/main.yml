@@ -236,7 +236,7 @@
           - name: search executable files
             find:
               paths: /var/lib/zabbix
-              patterns: '*.sh'
+              patterns: '*.sh,*.py'
             register: exec_files
             
           - name: change modes of executable files
@@ -246,6 +246,12 @@
               group: zabbix
               mode: 0755
             loop: "{{ register.files }}"
+            
+          - name: convert line feeds CRLF to LF
+            replace:
+              path: "{{ item.path }}"
+              regexp: '\\r'
+              replace: ''
               
         tags: zabbix_agent_userparams
     tags: zabbix_agent
