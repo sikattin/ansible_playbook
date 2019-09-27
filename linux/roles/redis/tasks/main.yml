@@ -75,8 +75,35 @@
                 value: 1
                 state: present
               
-            - name: Disable THP support 
+            - name: Disable THP support
+              block:
+                - name: sets kernel parameter on the boot
+                  replace:
+                    path: /etc/default/grub
+                    regexp: '^(GRUB_CMDLINE_LINUX_DEFAULT=.+)$'
+                    replace: '\1 transparent_hugepage=never'
+                    backup: yes
+                    
+                - name: backup /boot/grub2/grub.cfg
+                  copy:
+                    src: /boot/grub2/grub.cfg
+                    dest: /boot/grub2/grub.cfg.bak
+                    remote_src: yes
+                    
+                - name: rebuild the /boot/grub2/grub.cfg
+                  shell: /usr/sbin/grub2-mkconfig -o /boot/grub2/grub.cfg
                 
           tags: redis_settings_kern
           when: not is_containerd
+          
+        - name: enable the redis service
+          service:
+            name: "redis_{{ conf.port }}"
+            enabled: yes
+          
       tags: redis_settings
+      
+    - name: reboot the machine
+      reboot:
+        msg: "Start rebooting by ansible"
+      tags: redis_reboot
