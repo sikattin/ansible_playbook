@@ -98,7 +98,7 @@
           state: present
           regexp: '^relayhost\s*=\s*\S+'
           insertafter: '^#relayhost\s*=\s*\S+'
-          line: "relayhost = [{{ postfix.relayhost }}]:587"
+          line: "relayhost = {{ postfix.relayhost }}"
           
       - name: "postfix: disable smtpd"
         lineinfile:
@@ -108,47 +108,56 @@
           state: present
           regexp: '^(smtp\s+inet.+smtpd)$'
           line: '#\1'
-    tags: postfix
 
-  - name: "postfix ses settings"
-    block:
-      - name: "postfix: add ses settings"
-        lineinfile:
-          dest: "{{ postfix.mainconf }}"
-          state: present
-          line: "{{ item.key }} = {{ item.value }}"
-        loop: "{{ postfix.ses_settings|dict2items }}"
-
-      - name: "postfix: distributes the file for smtp authentication"
-        template:
-          src: postfix/sasl_passwd.j2
-          dest: "{{ postfix.sasl_passwd }}"
-          owner: root
-          group: root
-          mode: 0600
-            
-      - name: "postfix: creates db file"
-        shell: "/usr/sbin/postmap hash:{{ postfix.sasl_passwd }}"
-        args:
-          executable: /bin/bash
-        check_mode: no
-        register: result_postmap
-        failed_when: no
-        changed_when: result_postmap.rc == 0
-        notify: restart_postfix
+      - name: "postfix ses settings"
+        block:
+          - name: "postfix: sets relayhost"
+            lineinfile:
+              dest: "{{ postfix.mainconf}}"
+              backup: yes
+              state: present
+              regexp: '^relayhost\s*=\s*\S+'
+              insertafter: '^#relayhost\s*=\s*\S+'
+              line: "relayhost = [{{ postfix.ses_settings.relayhost }}]:587"
               
-      - name: "postfix: changes permission and owner"
-        file:
-          dest: "{{ item }}"
-          owner: root
-          group: root
-          mode: 0600
-        ignore_errors: true
-        loop:
-          - "{{ postfix.sasl_passwd }}"
-          - "{{ postfix.sasl_passwd }}.db"
-        notify: restart_postfix
-    when: is_ses_settings == true
+          - name: "postfix: add ses settings"
+            lineinfile:
+              dest: "{{ postfix.mainconf }}"
+              state: present
+              line: "{{ item.key }} = {{ item.value }}"
+            loop: "{{ postfix.ses_settings|dict2items }}"
+
+          - name: "postfix: distributes the file for smtp authentication"
+            template:
+              src: postfix/sasl_passwd.j2
+              dest: "{{ postfix.sasl_passwd }}"
+              owner: root
+              group: root
+              mode: 0600
+                
+          - name: "postfix: creates db file"
+            shell: "/usr/sbin/postmap hash:{{ postfix.sasl_passwd }}"
+            args:
+              executable: /bin/bash
+            check_mode: no
+            register: result_postmap
+            failed_when: no
+            changed_when: result_postmap.rc == 0
+            notify: restart_postfix
+                  
+          - name: "postfix: changes permission and owner"
+            file:
+              dest: "{{ item }}"
+              owner: root
+              group: root
+              mode: 0600
+            ignore_errors: true
+            loop:
+              - "{{ postfix.sasl_passwd }}"
+              - "{{ postfix.sasl_passwd }}.db"
+            notify: restart_postfix
+        when: is_ses_settings == true
+    tags: postfix
   tags: general_setting
   
   - name: settings zabbix_agent
@@ -201,6 +210,57 @@
               line: "{{ item.name }}={{ item.value }}"
             loop: "{{ zabbix.conf_items }}"
             notify: restart_zabbix_agent
+            
+      - name: zabbix agent userparameters
+        block:
+          - name: copy config files for userparamaters
+            copy:
+              src: "{{ item }}"
+              dest: "{{ zabbix.include_dir }}"
+              owner: root
+              group: root
+              mode: 0644
+            with_fileglob:
+              - "{{ zabbix.include_dir | regex_replace('/((?:\\S+/)*\\S*)', '\\1') }}/*.conf"
+            notify: restart_zabbix_agent
+            
+          - name: create the directory
+            file:
+              path: /var/lib/zabbix
+              state: directory
+              owner: zabbix
+              group: zabbix
+              
+          - name: copy user modules/scripts
+            copy:
+              src: "var/lib/zabbix/{{ item.path }}"
+              dest: /var/lib/zabbix
+              owner: zabbix
+              group: zabbix
+            with_filetree:
+              - "files/var/lib/zabbix/"
+              
+          - name: search executable files
+            find:
+              paths: /var/lib/zabbix
+              patterns: '*.sh,*.py'
+            register: exec_files
+            
+          - name: change modes of executable files
+            file:
+              path: "{{ item.path }}"
+              owner: zabbix
+              group: zabbix
+              mode: 0755
+            loop: "{{ register.files }}"
+            
+          - name: convert line feeds CRLF to LF
+            replace:
+              path: "{{ item.path }}"
+              regexp: '\\r'
+              replace: ''
+              
+        tags: zabbix_agent_userparams
     tags: zabbix_agent
     
   - name: sudo settings

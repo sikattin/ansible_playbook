@@ -92,6 +92,7 @@
           state: present
           regexp: '^inet_protocols\s*=\s*\w+'
           line: "inet_protocols={{ postfix.inet_protocols }}"
+        notify: restart_postfix
           
       - name: "postfix: sets relayhost"
         lineinfile:
@@ -100,7 +101,8 @@
           state: present
           regexp: '^relayhost\s*=\s*\S+'
           insertafter: '^#relayhost\s*=\s*\S+'
-          line: "relayhost = [{{ postfix.relayhost }}]:587"
+          line: "relayhost = {{ postfix.relayhost }}"
+        notify: restart_postfix
           
       - name: "postfix: disable smtpd"
         lineinfile:
@@ -110,9 +112,19 @@
           state: present
           regexp: '^(smtp\s+inet.+smtpd)$'
           line: '#\1'
+        notify: restart_postfix
 
       - name: "postfix ses settings"
         block:
+          - name: "postfix: sets relayhost"
+            lineinfile:
+              dest: "{{ postfix.mainconf}}"
+              backup: yes
+              state: present
+              regexp: '^relayhost\s*=\s*\S+'
+              insertafter: '^#relayhost\s*=\s*\S+'
+              line: "relayhost = [{{ postfix.ses_settings.relayhost }}]:587"
+              
           - name: "postfix: add ses settings"
             lineinfile:
               dest: "{{ postfix.mainconf }}"

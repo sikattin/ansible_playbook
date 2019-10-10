@@ -8,9 +8,10 @@ postfix:
   mainconf: "/etc/postfix/main.cf"
   masterconf: "/etc/postfix/master.cf"
   inet_protocols: "ipv4"
-  relayhost: "email-smtp.us-east-1.amazonaws.com"
+  relayhost: "xxx.xxx.xxx.xxx"
   sasl_passwd: "/etc/postfix/sasl_passwd"
   ses_settings:
+    relayhost: email-smtp.us-west-2.amazonaws.com
     smtp_sasl_auth_enable: "yes"
     smtp_sasl_security_options: "noanonymous"
     smtp_sasl_password_maps: "hash:/etc/postfix/sasl_passwd"
