@@ -96,13 +96,30 @@
           
       - name: "postfix: sets relayhost"
         lineinfile:
-          dest: "{{ postfix.mainconf}}"
+          dest: "{{ postfix.mainconf }}"
           backup: yes
           state: present
           regexp: '^relayhost\s*=\s*\S+'
           insertafter: '^#relayhost\s*=\s*\S+'
           line: "relayhost = {{ postfix.relayhost }}"
         notify: restart_postfix
+        
+      - name: "postfix mydomain"
+        lineinfile:
+          dest: "{{ postfix.mainconf }}"
+          state: present
+          regexp: '^mydomain\s*=\s*\S+'
+          insertafter: '^#mydomain\s*=\s*\S+'
+          line: "mydomain = {{ postfix.mydomain }}"
+        notify: restart_postfix
+        
+      - name: "postfix myorigin"
+        lineinfile:
+          dest: "{{ postfix.mainconf }}"
+          state: present
+          regexp: '^myorigin\s*=\s*\S+'
+          insertafter: '^#myorigin\s*=\s*\S+'
+          line: "myorigin = $mydomain"
           
       - name: "postfix: disable smtpd"
         lineinfile:

@@ -9,6 +9,7 @@ postfix:
   masterconf: "/etc/postfix/master.cf"
   inet_protocols: "ipv4"
   relayhost: "xxx.xxx.xxx.xxx"
+  mydomain: "example.co.jp"
   sasl_passwd: "/etc/postfix/sasl_passwd"
   ses_settings:
     relayhost: email-smtp.us-west-2.amazonaws.com

@@ -100,6 +100,23 @@
           insertafter: '^#relayhost\s*=\s*\S+'
           line: "relayhost = {{ postfix.relayhost }}"
           
+      - name: "postfix mydomain"
+        lineinfile:
+          dest: "{{ postfix.mainconf }}"
+          state: present
+          regexp: '^mydomain\s*=\s*\S+'
+          insertafter: '^#mydomain\s*=\s*\S+'
+          line: "mydomain = {{ postfix.mydomain }}"
+        notify: restart_postfix
+        
+      - name: "postfix myorigin"
+        lineinfile:
+          dest: "{{ postfix.mainconf }}"
+          state: present
+          regexp: '^myorigin\s*=\s*\S+'
+          insertafter: '^#myorigin\s*=\s*\S+'
+          line: "myorigin = $mydomain"
+          
       - name: "postfix: disable smtpd"
         lineinfile:
           dest: "{{ postfix.masterconf }}"
