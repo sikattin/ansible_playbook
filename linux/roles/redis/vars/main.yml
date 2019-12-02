@@ -1,0 +1,4 @@
+redis:
+  version: "4.0"
+  releaseno: "0"
+  conf_basepath: "/etc/redis"

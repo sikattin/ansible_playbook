@@ -1,0 +1,3 @@
+---
+dependencies:
+  - { role: apache_source, when: with_apache is defined and with_apache }

@@ -1,0 +1,137 @@
+---
+
+- name: "Install and settings redis"
+  block:
+    - name: "Setup build environment"
+      block:
+        - name: "Install C, C++ compiler, make"
+          yum:
+            name: "{{ redis_packages.rhel }}"
+            state: latest
+          when: ansible_os_family != "Debian" or ansible_distribution != "Suse"
+          notify: yum_clean
+  
+        - name: "Install C, C++ compiler, make"
+          apt:
+            name: "{{ redis_packages.debian }}"
+            state: latest
+          when: ansible_os_family == "Debian"
+      tags: setup_buildenv
+      
+    - name: "Install redis"
+      block:
+        - name: Download source tarball of redis
+          get_url:
+            url: "http://download.redis.io/releases/redis-{{ redis.version }}.{{ redis.releaseno }}.tar.gz"
+            dest: "/usr/local/src/redis-{{ redis.version }}.{{ redis.releaseno }}.tar.gz"
+            
+        - name: Clean up the build directory
+          file:
+            path: "/usr/local/src/bld/redis-{{ redis.version }}.{{ redis.releaseno }}"
+            state: absent
+            
+        - name: Create the build directory
+          file:
+            path: /usr/local/src/bld
+            state: directory
+            
+        - name: Unarchive source tarball
+          unarchive:
+            src: "/usr/local/src/redis-{{ redis.version }}.{{ redis.releaseno }}.tar.gz"
+            dest: /usr/local/src/bld
+            remote_src: yes
+            
+        - name: make
+          make:
+            chdir: "/usr/local/src/bld/redis-{{ redis.version }}.{{ redis.releaseno }}"
+            
+        - name: make install
+          make:
+            chdir: "/usr/local/src/bld/redis-{{ redis.version }}.{{ redis.releaseno }}"
+            target: install
+            
+        - name: Run initialize script
+          shell: |
+            REDIS_PORT={{ conf.port }} \
+            REDIS_CONFIG_FILE={{ redis.conf_basepath }}/{{ conf.port }}.conf \
+            REDIS_LOG_FILE={{ log_basepath }}/redis_{{ conf.port }}.log
+            REDIS_DATA_DIR={{ redis.datadir_base }}/{{ conf.port }}
+            REDIS_EXECUTABLE=`command -v redis-server` ./utils/install_server.sh
+          args:
+            chdir: "/usr/local/src/bld/redis-{{ redis.version }}.{{ redis.releaseno }}"
+            warn: false
+          register: res
+          changed_when: res.rc == 0
+          
+        - name: remove redis source tarball
+          file:
+            path: "/usr/local/src/redis-{{ redis.version }}.{{ redis.releaseno }}.tar.gz"
+            state: absent
+            
+      tags: install_redis
+      
+    - name: "Settings redis"
+      block:
+        - name: Kernel params
+          block:
+            - name: vm.overcommit_memory
+              sysctl:
+                name: vm.overcommit_memory
+                value: 1
+                state: present
+              
+            - name: Disable THP support
+              block:
+                - name: sets kernel parameter on the boot
+                  replace:
+                    path: /etc/default/grub
+                    regexp: '^(GRUB_CMDLINE_LINUX_DEFAULT=.+)$'
+                    replace: '\1 transparent_hugepage=never'
+                    backup: yes
+                    
+                - name: backup /boot/grub2/grub.cfg
+                  copy:
+                    src: /boot/grub2/grub.cfg
+                    dest: /boot/grub2/grub.cfg.bak
+                    remote_src: yes
+                    
+                - name: rebuild the /boot/grub2/grub.cfg
+                  shell: /usr/sbin/grub2-mkconfig -o /boot/grub2/grub.cfg
+                
+          tags: redis_settings_kern
+          when: not is_containerd
+          
+        - name: enable the redis service
+          service:
+            name: "redis_{{ conf.port }}"
+            enabled: yes
+          when: not is_containerd
+          
+      tags: redis_settings
+      
+    - name: remove installed packages for build
+      block:
+        - name: remove installed rpm packages
+          yum:
+            name: "{{ redis_rm_packages.rhel }}"
+            state: absent
+          when: ansible_os_family != "Debian" or ansible_distribution != "Suse"
+          notify: yum_clean
+          
+        - name: remove installed deb packages
+          apt:
+            name: "{{ redis.rm_packages.debian }}"
+            state: absent
+          when: ansible_os_family == "Debian"
+          
+      tags: redis_remove_packages
+      
+    - name: remove build directory
+      file:
+        path: "/usr/local/src/bld/redis-{{ redis.version }}.{{ redis.releaseno }}"
+        state: absent
+        
+    - name: reboot the machine
+      reboot:
+        msg: "Start rebooting by ansible"
+      tags: redis_reboot
