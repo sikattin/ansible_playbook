@@ -181,6 +181,14 @@
         when: is_ses_settings == true
     tags: postfix
     
+  - name: zabbix-sender settings
+    block:
+      - name: install zabbix-sender
+        yum:
+          name: "{{ zabbix.zabbix-sender_rpm }}"
+          state: present
+    tags: zabbix-sender
+    
   - name: settings zabbix_agent
     block:
       - name: install zabbix repository
@@ -235,6 +243,13 @@
         
       - name: zabbix agent userparameters
         block:
+          - name: create the directory
+            file:
+              path: /var/lib/zabbix
+              state: directory
+              owner: zabbix
+              group: zabbix
+              
           - name: copy config files for userparamaters
             copy:
               src: "{{ item }}"
@@ -245,13 +260,14 @@
             with_fileglob:
               - "{{ zabbix.include_dir | regex_replace('/((?:\\S+/)*\\S*)', '\\1') }}/*.conf"
             notify: restart_zabbix_agent
-            
-          - name: create the directory
-            file:
-              path: /var/lib/zabbix
-              state: directory
-              owner: zabbix
-              group: zabbix
+
+          - name: install zabbix-extension rpms
+            yum:
+              name: "{{ item }}"
+              state: present
+            with_fileglob:
+              - "usr/tmp/*.rpm"
+            notify: restart_zabbix_agent
               
           - name: copy user modules/scripts
             copy:
@@ -284,6 +300,18 @@
               
         tags: zabbix_agent_userparams
     tags: zabbix_agent
+    
+  - name: python3 settings
+    block:
+      - name: install ius community repository
+        yum:
+          name: "{{ python.ius_repo }}"
+          state: present
+      - name: install python3.6 and related packages
+        yum:
+          name: "{{ python.install_pkgs }}"
+          state: latest
+    tags: python
     
   - name: sudo settings
     block:

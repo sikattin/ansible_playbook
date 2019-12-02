@@ -28,6 +28,14 @@ zabbix:
   conf_items:
     - name: "HostMetadata"
       value: "Linux"
+  zabbix-sender_rpm: "https://repo.zabbix.com/zabbix/4.0/rhel/7/x86_64/zabbix-sender-4.0.14-1.el7.x86_64.rpm"
+python:
+  ius_repo: "https://repo.ius.io/ius-release-el6.rpm"
+  install_pkgs:
+    - python36
+    - python36-devel
+    - python36-setuptools
+    - python36-pip
 sudo:
   conf: "/etc/sudoers"
   sudo_users:
