@@ -407,11 +407,11 @@
     block:
       - name: distribute a loginchk script
         template:
-          src: loginchk/loginchk_ses.py.j2
-          dest: /etc/profile.d/loginchk_ses.py
+          src: loginchk/loginchk.py.j2
+          dest: /etc/profile.d/loginchk.py
           owner: root
           group: root
-          mode: 0644
+          mode: 0755
           
       - name: enable loginchk
         lineinfile:
@@ -449,3 +449,37 @@
         selinux:
           state: disabled
     tags: selinux
+    
+  - name: swap
+    block:
+      - name: checking for swapfile exists or not
+        stat:
+          path: /swapfile
+        register: result
+        
+      - name: create swap
+        block:
+          - name: create a swapfile filled zero with the specified size
+            shell: "dd if=/dev/zero of=/swapfile bs=1M count={{ swap.size }}"
+            
+          - name: change permission of swapfile
+            file:
+              dest: "/swapfile"
+              owner: "root"
+              group: "root"
+              mode: "0600"
+              
+          - name: setup swap areas
+            shell: "mkswap /swapfile"
+            
+          - name: enable swap
+            shell: "swapon /swapfile"
+            
+          - name: mount swapfile on boot
+            lineinfile:
+              dest: "/etc/fstab"
+              backup: yes
+              state: present
+              line: "/swapfile swap swap defaults 0 0"
+        when: not result.stat.exists
+    tags: swap

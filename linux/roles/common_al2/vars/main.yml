@@ -28,6 +28,8 @@ zabbix:
   conf_items:
     - name: "HostMetadata"
       value: "Linux"
+    - name: "UnsafeUserParameters"
+      value: "1"
   zabbix-sender_rpm: "https://repo.zabbix.com/zabbix/4.0/rhel/7/x86_64/zabbix-sender-4.0.14-1.el7.x86_64.rpm"
 python:
   ius_repo: "https://repo.ius.io/ius-release-el6.rpm"

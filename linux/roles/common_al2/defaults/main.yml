@@ -4,5 +4,6 @@ mail:
   cc_address: "xxx@domain.co.jp"
   from_address: "xxx@domain.co.jp"
   smtp_endpoint: "email-smtp.us-west-2.amazonaws.com"
+  smtp_host: 'xxx'
 swap:
   size: "2048"
