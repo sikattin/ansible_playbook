@@ -1,8 +1,0 @@
-update_password: true
-users:
-  - name: hoge
-    shell: /bin/bash
-    group: hoge
-  - name: mike
-    shell: /bin/bash
-    group: mike

@@ -1,6 +1,0 @@
-is_ses_settings: true
-mail:
-  to_address: "xxx@domain.co.jp"
-  cc_address: "xxx@domain.co.jp"
-  from_address: "xxx@domain.co.jp"
-  smtp_endpoint: "email-smtp.us-west-2.amazonaws.com"
